@@ -114,39 +114,35 @@ sub _convert_sub {
     my $rslt = 0;
 
     state $sub_map_to	= {
-	BAIL_OUT	=> {
-	    fixup	=> \&_convert_sub__fixup__BAIL_OUT,
-	    handler	=> \&_convert_sub__nop,
+	BAIL_OUT	=> sub {
+	    return( BAIL_OUT => sub {
+		    return $_[0]->_add_code(
+			'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
+		    );
+		},
+	    );
 	},
-	builder		=> {
-	    handler	=> \&_convert_sub__named__builder,
+	builder		=> \&_convert_sub__named__builder,
+	is_deeply	=> sub {
+	    $_[0]->_convert_sub__rename( $_[1], { name => 'is' } );
+	    return;
 	},
-	is_deeply	=> {
-	    handler	=> \&_convert_sub__rename,
-	    to		=> {
-		name	=> 'is',
-	    },
+	isa_ok		=> \&_convert_sub__named__isa_ok,
+	plan		=> \&_convert_sub__named__plan,
+	require_ok	=> sub {
+	    return(
+		load_module	=> \&_convert_sub__fixup__load_module_ok,
+	    );
 	},
-	isa_ok		=> {
-	    handler	=> \&_convert_sub__named__isa_ok,
-	},
-	plan		=> {
-	    handler	=> \&_convert_sub__named__plan,
-	},
-	require_ok	=> {
-	    fixup	=> \&_convert_sub__fixup__load_module_ok,
-	    handler	=> \&_convert_sub__nop,
-	},
-	use_ok		=> {
-	    fixup	=> \&_convert_sub__fixup__load_module_ok,
-	    handler	=> \&_convert_sub__named__use_ok,
-	    to		=> {
-		name	=> 'load_module_ok',
-	    },
-	},
-	'Test::Builder::Level'	=> {
-	    fixup	=> \&_convert_sub__fixup__test_builder_level,
-	    handler	=> \&_convert_sub__nop,
+	use_ok		=> \&_convert_sub__named__use_ok,
+	'Test::Builder::Level'	=> sub {
+	    return(
+		'Test::Builder::Level',
+		sub {
+		    my ( $self ) = @_;
+		    return $self->_add_use( 'Test::Builder', '()' );
+		},
+	    );
 	},
     };
 
@@ -178,44 +174,26 @@ sub _convert_sub {
 	    @{ $self->{_cvt}{doc}->find( 'PPI::Token::Symbol' ) || [] } ),
     ) {
 
-	my $to = $sub_map_to->{ $from->{name} }
+	my $code = $sub_map_to->{ $from->{name} }
 	    or next;
 
 	$rslt++;
-	$generated{ $to->{to}{name} // $from->{name} } = $to->{fixup};
 
-	$to->{handler}->( $self, $from, $to->{to} );
-
+	my ( $key, $fixup );
+	( $key, $fixup ) = $code->( $self, $from )
+	    and ( $generated{$key} ||= $fixup );
     }
 
-    foreach my $code ( values %generated ) {
-	$code
-	    and $code->( $self );
-    }
+    $_->( $self ) for values %generated;
 
     return $rslt;
 }
 
-sub _convert_sub__fixup__BAIL_OUT {
-    my ( $self ) = @_;
-    return $self->_add_code(
-	'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
-    );
-}
-
 sub _convert_sub__fixup__load_module_ok {
     my ( $self ) = @_;
-    my @args = 'Test2::Tools::LoadModule';
-    push @args, $self->{load_module} ? ':all' : ':more';
     return $self->_add_use(
-	'Test2::Tools::LoadModule',
-	$self->{load_module} ? 'qw{ :all }' : 'qw{ :more }',
+	'Test2::Tools::LoadModule', q<':more'>,
     );
-}
-
-sub _convert_sub__fixup__test_builder_level {
-    my ( $self ) = @_;
-    return $self->_add_use( 'Test::Builder', '()' );
 }
 
 sub _convert_sub__named__builder {
@@ -321,22 +299,28 @@ sub _convert_sub__named__plan {
 
 sub _convert_sub__named__use_ok {
     my ( $self, $from ) = @_;	# $to unused
-    $self->{load_module}
-	and goto &_convert_sub__rename;
-    my $from_stmt = $from->{ele}->statement();
-    ( my $to_text = $from_stmt->content() ) =~ s/ \b use_ok \b /use ok/smx;
-    my $doc = $self->_parse_string( $to_text );
-    my $to_stmt = $doc->find_first( 'PPI::Statement::Include' )
-	or $self->__confess(
-	'Failed to find a PPI::Statement::Include in ',
-	"'$to_text'",
-    );
-    $from_stmt->replace( $to_stmt->remove() );
-    return;
-}
-
-sub _convert_sub__nop {
-    return;
+    if ( $self->{load_module} ) {
+	return(
+	    load_module	=> \&_convert_sub__fixup__load_module_ok,
+	);
+    } else {
+	my $from_stmt = $from->{ele}->statement();
+	( my $to_text = $from_stmt->content() ) =~ s/ \b use_ok \b /use ok/smx;
+	my $doc = $self->_parse_string( $to_text );
+	my $to_stmt = $doc->find_first( 'PPI::Statement::Include' )
+	    or $self->__confess(
+	    'Failed to find a PPI::Statement::Include in ',
+	    "'$to_text'",
+	);
+	$from_stmt->replace( $to_stmt->remove() );
+	return(
+	    use_ok => sub {
+		$self->__carp(
+		    "Added 'use ok'",
+		);
+	    },
+	);
+    }
 }
 
 sub _convert_sub__rename {

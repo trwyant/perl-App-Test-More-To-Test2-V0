@@ -203,7 +203,6 @@ EOD
 use strict;
 use warnings;
 use Test2::V0;
-use Test2::Tools::LoadModule qw{ :more };
 
 use ok 'Foo::Bar';
 
@@ -211,7 +210,7 @@ done_testing;
 EOD
        'Convert use_ok() using use ok ...';
 
-	like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
+	like $warning, qr/\AAdded 'use ok' in\b/,
 	'Correct load_module_ok() warning';
 
 	is $app->convert( \<<'EOD' ),
@@ -227,7 +226,7 @@ EOD
 use strict;
 use warnings;
 use Test2::V0;
-use Test2::Tools::LoadModule qw{ :more };
+use Test2::Tools::LoadModule ':more';
 
 require_ok 'Foo::Bar';
 
@@ -401,9 +400,9 @@ EOD
 use strict;
 use warnings;
 use Test2::V0;
-use Test2::Tools::LoadModule qw{ :all };
+use Test2::Tools::LoadModule ':more';
 
-load_module_ok 'Foo::Bar';
+use_ok 'Foo::Bar';
 
 done_testing;
 EOD

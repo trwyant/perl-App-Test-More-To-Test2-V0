@@ -249,12 +249,10 @@ sub _convert_sub__named__plan {
 	    my $sub_arg = "@{ $arg[1] }";
 	    my $next_sib = $from->{ele}->snext_sibling();
 	    if ( $next_sib->isa( 'PPI::Structure::List' ) ) {
-		my $doc = $self->_parse_string( "( $sub_arg )" );
-		my $list = $doc->find_first( 'PPI::Structure::List' )
-		    or __confess(
-			"Parse of '( $sub_arg )' did not ",
-			'produce a PPI::Structure::List',
-		    );
+		my $list = $self->_parse_string_for(
+		    "( $sub_arg )",
+		    'PPI::Structure::List',
+		);
 		$next_sib->replace( $list->remove() );
 	    } else {
 		my $iter = $from->{ele};
@@ -306,12 +304,11 @@ sub _convert_sub__named__use_ok {
     } else {
 	my $from_stmt = $from->{ele}->statement();
 	( my $to_text = $from_stmt->content() ) =~ s/ \b use_ok \b /use ok/smx;
-	my $doc = $self->_parse_string( $to_text );
-	my $to_stmt = $doc->find_first( 'PPI::Statement::Include' )
-	    or $self->__confess(
-	    'Failed to find a PPI::Statement::Include in ',
-	    "'$to_text'",
+
+	my $to_stmt = $self->_parse_string_for(
+	    $to_text, 'PPI::Statement::Include',
 	);
+
 	$from_stmt->replace( $to_stmt->remove() );
 	return(
 	    use_ok => sub {
@@ -356,10 +353,10 @@ sub _convert_todo {
 	$assign eq '='		# PPI::Token::Operator
 	    or next;
 
-	my $todo_doc = $self->_parse_string( 'my $todo = todo "Foo";' );
-	my ( $todo_stmt ) = @{ $todo_doc->find(
-	'PPI::Statement::Variable' ) || [] }
-	    or $self->__confess( 'Failed to build Test2::V0 todo statement' );
+	my $todo_stmt = $self->_parse_string_for(
+	    'my $todo = todo "Foo";',
+	    'PPI::Statement::Variable',
+	);
 	my $my = $todo_stmt->schild( 0 )
 	    or $self->__confess( q{Failed to find word 'my'} );
 	my $todo_sym = $todo_stmt->schild( 1 )
@@ -389,6 +386,7 @@ sub _convert_use {
 	    or next;
 	my $type = $use->type();
 
+	# TODO this can probably be improved using _parse_string_for
 	my $repl = $self->_parse_string( "$type Test2::V0;" );
 	$self->{_cvt}{use}{'Test2::V0'} ||=
 	    $use->replace( $repl->schild( 0 )->remove() );
@@ -578,6 +576,15 @@ sub _parse_string {
 	or $self->__confess( "PPI can not parse '$string'" );
 
     return $doc;
+}
+
+sub _parse_string_for {
+    my ( $self, $string, $class ) = @_;
+    $class //= 'PPI::Statement';
+    my $doc = $self->_parse_string( $string );
+    my $rslt = $doc->find_first( $class )
+	or $self->__confess( "Parsing '$string' did not produce a $class" );
+    return $rslt->remove();
 }
 
 sub _ppi_to_string {

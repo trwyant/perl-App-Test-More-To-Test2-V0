@@ -135,6 +135,7 @@ sub _convert_sub {
 	    );
 	},
 	use_ok		=> \&_convert_sub__named__use_ok,
+
 	'Test::Builder::Level'	=> sub {
 	    return(
 		'Test::Builder::Level',
@@ -273,12 +274,11 @@ sub _convert_sub__named__plan {
 		pop @arg_list while @arg_list && ! $arg_list[-1]->significant();
 		$_->delete() for @arg_list;
 
-		my $doc = $self->_parse_string( $sub_arg );
 		# FIXME __insert_after() is an encapsulation violation,
 		# but insert() will not insert a PPI::Statement, at
 		# least not as of 1.276
 		$insert_after->__insert_after( $_->remove() )
-		    for reverse $doc->children();
+		    for reverse $self->_parse_string_kids( $sub_arg );
 	    }
 	    $sub_name ne $from->{name}
 		and $from->{ele}->replace( PPI::Token::Word->new( $sub_name ) );
@@ -386,10 +386,13 @@ sub _convert_use {
 	    or next;
 	my $type = $use->type();
 
-	# TODO this can probably be improved using _parse_string_for
-	my $repl = $self->_parse_string( "$type Test2::V0;" );
-	$self->{_cvt}{use}{'Test2::V0'} ||=
-	    $use->replace( $repl->schild( 0 )->remove() );
+	my $repl = $self->_parse_string_for(
+	    "$type Test2::V0;",
+	    'PPI::Statement::Include',
+	);
+	$use->replace( $repl );
+	$self->{_cvt}{use}{'Test2::V0'} ||= $repl;
+
 
 	if ( my $start = _find_use_arg_start_point( $use ) ) {
 	    my @arg = PPIx::Utils::parse_arg_list( $start );
@@ -448,12 +451,11 @@ sub _add_code {
 	or substr $code, 0, 0, "\n";
     $code .= $self->{_cvt}{code_end};
 
-    my $doc = $self->_parse_string( $code );
+    my @kids = $self->_parse_string_kids( $code );
 
-    my @kids = map { $_->remove() } $doc->children();
-
-    # FIXME __insert_after() is an encapsulation violation, but insert()
-    # will not insert a PPI::Statement, at least not as of 1.276
+    # FIXME __insert_after() is an encapsulation violation, but
+    # insert_after() will not insert a PPI::Statement, at least not as
+    # of 1.276
     foreach my $kid ( reverse @kids ) {
 	$self->{_cvt}{code}->__insert_after( $kid );
     }
@@ -472,15 +474,15 @@ sub _add_use {
 	or $self->__croak(
 	    "Unable to find 'use Test2::V0'. Can not add 'use $module'",
 	);
-    my $load_doc = $self->_parse_string( do {
+    my @kids = $self->_parse_string_kids( do {
 	    local $" = ', ';
 	    @arg ? "\nuse $module @arg;" : "\nuse $module;";
 	}
     );
-    my @kids = $load_doc->children();
     $self->{_cvt}{use}{$module} = $kids[-1];
-    # FIXME __insert_after() is an encapsulation violation, but insert()
-    # will not insert a PPI::Statement, at least not as of 1.276
+    # FIXME __insert_after() is an encapsulation violation, but
+    # insert_after() will not insert a PPI::Statement, at least not as
+    # of 1.276
     $use_test2_v0->__insert_after( $_->remove() )
 	for reverse @kids;
     $self->__carp(
@@ -587,6 +589,26 @@ sub _parse_string_for {
     return $rslt->remove();
 }
 
+sub _parse_string_kids {
+    my ( $self, $string ) = @_;
+    my $doc = $self->_parse_string( $string );
+    my @kids = $doc->children()
+	or return;
+    wantarray
+	and return( map { $_->remove() } @kids );
+    return $kids[0]->remove();
+}
+
+sub _ppi_parent_block {
+    my ( $ele ) = @_;
+    while ( my $block = $ele->parent() ) {
+	$block->isa( 'PPI::Structure::Block' )
+	    and return $block;
+	$ele = $block;
+    }
+    return undef;
+}
+
 sub _ppi_to_string {
     my @arg = @_;
     foreach ( @arg ) {
@@ -611,6 +633,7 @@ sub __carp {
 	warn @args, "\n";
     } else {
 	require Carp;
+	local $Carp::CarpLevel = $Carp::CarpLevel + 1;
 	Carp::carp( @args );
     }
     return;
@@ -620,6 +643,7 @@ sub __confess {
     my ( undef, @args ) = @_;	# Invocant unused
     chomp $args[-1];
     require Carp;
+    local $Carp::CarpLevel = $Carp::CarpLevel + 1;
     Carp::confess( 'Bug - ', @args );
     return;
 }
@@ -632,6 +656,7 @@ sub __croak {
     } else {
 	chomp $args[-1];
 	require Carp;
+	local $Carp::CarpLevel = $Carp::CarpLevel + 1;
 	Carp::croak( @args );
     }
     return;

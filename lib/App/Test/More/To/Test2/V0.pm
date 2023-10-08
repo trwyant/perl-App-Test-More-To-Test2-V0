@@ -50,7 +50,6 @@ sub convert {
 
     my $rewrite = $self->_convert_use()
 	    + $self->_convert_sub()
-	    + $self->_convert_todo()
 	or $self->{quiet}
 	or $self->__carp( "$file does not use Test::More (or so I think)" );
 
@@ -88,6 +87,7 @@ sub _convert_sub {
 	use_ok		=> \&_convert_sub__named__use_ok,
 
 	'Test::Builder::Level' => \&_convert_sub__symbol__test_builder_level,
+	'TODO'		=> \&_convert_sub__symbol__TODO,
     };
 
     my %generated;
@@ -113,7 +113,7 @@ sub _convert_sub {
 		} }
 	    grep {
 		_is_goto( $_ ) && $_->raw_type() eq '&' ||
-		$_ =~ m/ \A [*&%\$\@] Test::Builder:: /smx
+		$_->raw_type() eq '$'
 	    }
 	    @{ $self->{_cvt}{doc}->find( 'PPI::Token::Symbol' ) || [] } ),
     ) {
@@ -315,45 +315,40 @@ sub _convert_sub__rename {
     return;
 }
 
-sub _convert_todo {
-    my ( $self ) = @_;
+sub _convert_sub__symbol__TODO {
+    my ( $self, $from ) = @_;
 
-    my $rslt = 0;
+    $DB::single = 1;
 
-    foreach my $ele (
-	@{ $self->{_cvt}{doc}->find( 'PPI::Statement::Variable' ) || [] }
-    ) {
-	my $local = $ele->schild( 0 )
-	    or next;
-	$local eq 'local'	# PPI::Token::Word
-	    or next;
-	my $symbol = $ele->schild( 1 )
-	    or next;
-	$symbol eq '$TODO'	# PPI::Token::Symbol
-	    or next;
-	my $assign = $ele->schild( 2 )
-	    or next;
-	$assign eq '='		# PPI::Token::Operator
-	    or next;
+    my $stmt = $from->{ele}->statement()
+	or return;
+    $stmt->isa( 'PPI::Statement::Variable' )
+	or return;
 
-	my $todo_stmt = $self->_parse_string_for(
-	    'my $todo = todo "Foo";',
-	    'PPI::Statement::Variable',
-	);
-	my $my = $todo_stmt->schild( 0 )
-	    or $self->__confess( q{Failed to find word 'my'} );
-	my $todo_sym = $todo_stmt->schild( 1 )
-	    or $self->__confess( q{Failed to find symbol '$todo'} );
-	my $todo_call = $todo_stmt->schild( 3 )
-	    or $self->__confess( q{Failed to find word 'todo'} );
-	my $space = $todo_call->previous_sibling();
-	$local->replace( $my->remove() );
-	$symbol->replace( $todo_sym->remove() );
-	$assign->insert_after( $todo_call->remove() );
-	$assign->insert_after( $space->remove() );
-    }
+    my $local = $stmt->schild( 0 )
+	or return;
+    $local eq 'local'
+	or return;
 
-    return $rslt;
+    my $assign = $stmt->schild( 2 )
+	or return;
+    $assign->isa( 'PPI::Token::Operator' )
+	and $assign eq '='
+	or return;
+
+    my $rhs = $assign->next_sibling()
+	or return;
+    my $todo = $rhs->isa( 'PPI::Token::Whitespace' ) ? ' todo' : ' todo ';
+
+    # FIXME encapsulation violation. new() is undocumented.
+    my $my = PPI::Token::Word->new( 'my' );
+    $local->replace( $my );
+
+    # FIXME __insert_after() is an encapsulation violation.
+    $assign->__insert_after( $_ ) for reverse $self->_parse_string_kids(
+	$todo );
+
+    return;
 }
 
 sub _convert_sub__symbol__test_builder_level {
@@ -650,7 +645,7 @@ sub _strip_sigil {
     return $rslt;
 }
 
-sub __carp {
+sub __carp {	## no critic (RequireArgUnpacking)
     my ( $self, @args ) = @_;
     chomp $args[-1];
     push @args, " in file $self->{_cvt}{file}";
@@ -658,21 +653,21 @@ sub __carp {
 	warn @args, "\n";
     } else {
 	require Carp;
-	Carp::carp( @args );
+	@_ = @args;
+	goto &Carp::carp;
     }
     return;
 }
 
-sub __confess {
+sub __confess {	## no critic (RequireArgUnpacking)
     my ( undef, @args ) = @_;	# Invocant unused
     chomp $args[-1];
     require Carp;
-    # local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-    Carp::confess( 'Bug - ', @args );
-    return;
+    @_ = ( 'Bug - ', @args );
+    goto &Carp::confess;
 }
 
-sub __croak {
+sub __croak {	## no critic (RequireArgUnpacking)
     my ( $self, @args ) = @_;
     if ( $self->{die} ) {
 	__unchomp( $args[-1] );
@@ -680,7 +675,8 @@ sub __croak {
     } else {
 	chomp $args[-1];
 	require Carp;
-	Carp::croak( @args );
+	@_ = @args;
+	goto &Carp::croak;
     }
     return;
 }

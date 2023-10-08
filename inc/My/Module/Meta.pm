@@ -31,6 +31,9 @@ sub author {
 
 sub build_requires {
     return +{
+	ok		=> 0,
+	'Scope::Guard'	=> 0,
+	'Test::Builder'	=> 0,
 	'Test2::V0'	=> 0,
 	'Test2::Plugin::BailOnFail'	=> 0,
 	'Test2::Tools::LoadModule'	=> 0,

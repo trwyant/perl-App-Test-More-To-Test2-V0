@@ -30,6 +30,7 @@ sub new {
 	die		=> delete $arg{die},
 	load_module	=> delete $arg{load_module},
 	quiet		=> delete $arg{quiet},
+	use_context	=> delete $arg{use_context},
     }, $class;
     keys %arg
 	and $self->__croak( 'Unsupported arguments: ',
@@ -136,15 +137,7 @@ sub _convert_sub {
 	},
 	use_ok		=> \&_convert_sub__named__use_ok,
 
-	'Test::Builder::Level'	=> sub {
-	    return(
-		'Test::Builder::Level',
-		sub {
-		    my ( $self ) = @_;
-		    return $self->_add_use( 'Test::Builder', '()' );
-		},
-	    );
-	},
+	'Test::Builder::Level' => \&_convert_sub__symbol__test_builder_level,
     };
 
     my %generated;
@@ -371,6 +364,58 @@ sub _convert_todo {
     }
 
     return $rslt;
+}
+
+sub _convert_sub__symbol__test_builder_level {
+    my ( $self, $from ) = @_;
+
+    $self->{use_context}
+	or return(
+	    'Test::Builder::Level',
+	    sub {
+		my ( $self ) = @_;
+		return $self->_add_use( 'Test::Builder', '()' );
+	    },
+	);
+
+    my $scope_guard = 'scope_guard';	# TODO make this an attribute
+
+    # NOTE that we may not find a statement if the symbol is repeated,
+    # e.g.
+    # local $Test::Builder::Level = $Test::Builder::Level + 1;
+    my $old_stmt = $from->{ele}->statement()
+	or return;
+
+    my $new_code;
+    {
+	my $prior = $old_stmt->previous_sibling();
+	if ( $prior = $old_stmt->previous_sibling()
+		and $prior->isa( 'PPI::Token::Whitespace' )
+		and $prior =~ m/ (?: \n | \A ) ( .* ) \z /smx
+	) {
+	    my $indent = $1;
+	    $new_code = <<"EOD";
+my \$$scope_guard = do {
+$indent    my \$ctx = context();
+$indent    Scope::Guard->new( sub { \$ctx->release() } );
+$indent};
+EOD
+	} else {
+	    $new_code = <<"EOD";
+my \$$scope_guard = do { my \$ctx = context(); Scope::Guard->new( sub { \$ctx->release() } ) };
+EOD
+	}
+    }
+    chomp $new_code;
+    my $new_stmt = $self->_parse_string_for(
+	$new_code,
+	'PPI::Statement::Variable',
+    );
+    $old_stmt->replace( $new_stmt );
+    return(
+	'Test::Builder::Level',
+	sub { $self->_add_use( 'Scope::Guard' ) },
+    );
 }
 
 sub _convert_use {
@@ -606,7 +651,7 @@ sub _ppi_parent_block {
 	    and return $block;
 	$ele = $block;
     }
-    return undef;
+    return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
 sub _ppi_to_string {
@@ -633,7 +678,6 @@ sub __carp {
 	warn @args, "\n";
     } else {
 	require Carp;
-	local $Carp::CarpLevel = $Carp::CarpLevel + 1;
 	Carp::carp( @args );
     }
     return;
@@ -643,7 +687,7 @@ sub __confess {
     my ( undef, @args ) = @_;	# Invocant unused
     chomp $args[-1];
     require Carp;
-    local $Carp::CarpLevel = $Carp::CarpLevel + 1;
+    # local $Carp::CarpLevel = $Carp::CarpLevel + 1;
     Carp::confess( 'Bug - ', @args );
     return;
 }
@@ -656,7 +700,6 @@ sub __croak {
     } else {
 	chomp $args[-1];
 	require Carp;
-	local $Carp::CarpLevel = $Carp::CarpLevel + 1;
 	Carp::croak( @args );
     }
     return;
@@ -736,7 +779,21 @@ The default is false.
 
 =item quiet
 
-If this Boolean argument is true warnings will be suppressed.
+If this Boolean argument is true some warnings will be suppressed.
+
+The default is false.
+
+=item use_context
+
+If this Boolean argument is true, uses of C<$Test::Builder::Level> will
+be removed. Instead, a C<Test2> context will be acquired, and released
+when the scope ends. This implementation requires
+L<Scope::Guard|Scope::Guard> to be loaded.
+
+If this Boolean argument is false or omitted, uses of
+C<$Test::Builder::Level> will be retained, but
+L<Test::Builder|Test::Builder> will be loaded (without importing
+anything) since that seems to be necessary to get it to work.
 
 The default is false.
 
@@ -767,8 +824,8 @@ The specific modifications are:
 
 =item use Test::More ...
 
-All occurrences of C<use Test::More;>, C<no Test::More;>, and C<require
-Test::More;> are changed to use, no, or require C<Test2::V0>.
+All occurrences of C<use Test::More;>, C<no Test::More;>, and
+C<require Test::More;> are changed to use, no, or require C<Test2::V0>.
 
 All occurrences of C<use Test::More ...;> are examined for a C<'tests'>
 argument; if one is found, a call to C<plan();> is added.
@@ -853,7 +910,12 @@ C<my $TODO = todo ...>.
 
 =item $Test::Builder::Level
 
-If this is found, C<use Test::Builder ();> is added.
+If the L<use_context|/use_context> attribute is true, all statements
+that localize C<$Test::Builder::Level> will be converted to statements
+that acquire a C<Test2> context and release it on scope exit.
+
+If this attribute is false and a reference to C<$Test::Builder::Level>
+is found, C<use Test::Builder ();> is added.
 
 B<Note> that
 L<Test2::Manual::Tooling::TestBuilder|Test2::Manual::Tooling::TestBuilder>

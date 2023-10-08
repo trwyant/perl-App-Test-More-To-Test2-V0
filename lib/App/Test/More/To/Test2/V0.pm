@@ -49,7 +49,6 @@ sub convert {
 	or $self->__croak( "Failed to open $file: $!" );
 
     my $rewrite = $self->_convert_use()
-	    + $self->_convert_bail()
 	    + $self->_convert_sub()
 	    + $self->_convert_todo()
 	or $self->{quiet}
@@ -67,62 +66,13 @@ sub convert {
     return $content;
 }
 
-sub _convert_bail {
-    my ( $self ) = @_;
-
-    $self->{bail_on_fail}
-	or return 0;
-
-    my $rslt = 0;
-
-    foreach my $bail (
-	@{ $self->{_cvt}{doc}->find( 'PPI::Token::Word' ) || [] }
-    ) {
-	$bail eq 'BAIL_OUT'
-	    or next;
-
-	my $next_sib = $bail->next_sibling();
-
-	my $ele = $self->_delete_elements( $bail );
-
-	state $unwanted = { map { $_ => 1 } do {
-		no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
-		qw{ and or xor ; }
-	    }
-	};
-
-	$ele
-	    and $unwanted->{$ele}
-	    and $self->_delete_elements( $ele );
-
-	$ele = $next_sib;
-	while ( $ele && ! $unwanted->{$ele} ) {
-	    $ele = $self->_delete_elements( $ele, 1 );
-	}
-
-	$rslt++;
-    }
-
-    $rslt
-	and $self->_add_use( 'Test2::Plugin::BailOnFail' );
-
-    return $rslt;
-}
-
 sub _convert_sub {
     my ( $self ) = @_;
 
     my $rslt = 0;
 
     state $sub_map_to	= {
-	BAIL_OUT	=> sub {
-	    return( BAIL_OUT => sub {
-		    return $_[0]->_add_code(
-			'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
-		    );
-		},
-	    );
-	},
+	BAIL_OUT	=> \&_convert_sub__named__BAIL_OUT,
 	builder		=> \&_convert_sub__named__builder,
 	is_deeply	=> sub {
 	    $_[0]->_convert_sub__rename( $_[1], { name => 'is' } );
@@ -188,6 +138,46 @@ sub _convert_sub__fixup__load_module_ok {
     return $self->_add_use(
 	'Test2::Tools::LoadModule', q<':more'>,
     );
+}
+
+sub _convert_sub__named__BAIL_OUT {
+    my ( $self, $from ) = @_;
+
+    my $rslt;
+
+    if ( $self->{bail_on_fail} ) {
+
+	my $bail = $from->{ele};
+
+	my $next_sib = $bail->next_sibling();
+
+	my $ele = $self->_delete_elements( $bail );
+
+	state $unwanted = { map { $_ => 1 } do {
+		no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
+		qw{ and or xor ; }
+	    }
+	};
+
+	$ele
+	    and $unwanted->{$ele}
+	    and $self->_delete_elements( $ele );
+
+	$ele = $next_sib;
+	while ( $ele && ! $unwanted->{$ele} ) {
+	    $ele = $self->_delete_elements( $ele, 1 );
+	}
+
+	$rslt = sub { return $_[0]->_add_use( 'Test2::Plugin::BailOnFail' ) };
+    } else {
+	$rslt = sub {
+	    return $_[0]->_add_code(
+		'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
+	    );
+	};
+    }
+
+    return( BAIL_OUT => $rslt );
 }
 
 sub _convert_sub__named__builder {

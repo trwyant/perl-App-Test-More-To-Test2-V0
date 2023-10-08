@@ -644,16 +644,6 @@ sub _parse_string_kids {
     return $kids[0]->remove();
 }
 
-sub _ppi_parent_block {
-    my ( $ele ) = @_;
-    while ( my $block = $ele->parent() ) {
-	$block->isa( 'PPI::Structure::Block' )
-	    and return $block;
-	$ele = $block;
-    }
-    return undef;	## no critic (ProhibitExplicitReturnUndef)
-}
-
 sub _ppi_to_string {
     my @arg = @_;
     foreach ( @arg ) {

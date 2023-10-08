@@ -11,21 +11,21 @@ use Test2::V0 -target => 'App::Test::More::To::Test2::V0';
     my $app = CLASS->new();
 
     {
-	my $warning;
-	local $SIG{__WARN__} = sub { $warning = $_[0] };
+        my $warning;
+        local $SIG{__WARN__} = sub { $warning = $_[0] };
 
-	is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 EOD
-	<<'EOD',
+        <<'EOD',
 use strict;
 use warnings;
 EOD
-	'Null conversion';
+        'Null conversion';
 
-	like $warning, qr{\bdoes not use Test::More\b},
-	    'Correct null conversion warning';
+        like $warning, qr{\bdoes not use Test::More\b},
+            'Correct null conversion warning';
     }
 
     is $app->convert( \<<'EOD' ),
@@ -187,10 +187,10 @@ EOD
    'Convert is_deeply() to is()';
 
     {
-	my $warning;
-	local $SIG{__WARN__} = sub { $warning = $_[0] };
+        my $warning;
+        local $SIG{__WARN__} = sub { $warning = $_[0] };
 
-	is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
@@ -199,7 +199,7 @@ use_ok 'Foo::Bar';
 
 done_testing;
 EOD
-	<<'EOD',
+        <<'EOD',
 use strict;
 use warnings;
 use Test2::V0;
@@ -210,10 +210,10 @@ done_testing;
 EOD
        'Convert use_ok() using use ok ...';
 
-	like $warning, qr/\AAdded 'use ok' in\b/,
-	'Correct load_module_ok() warning';
+        like $warning, qr/\AAdded 'use ok' in\b/,
+        'Correct load_module_ok() warning';
 
-	is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
@@ -222,7 +222,7 @@ require_ok 'Foo::Bar';
 
 done_testing;
 EOD
-	<<'EOD',
+        <<'EOD',
 use strict;
 use warnings;
 use Test2::V0;
@@ -234,8 +234,8 @@ done_testing;
 EOD
        'Convert require_ok() using Test2::Tools::LoadModule';
 
-	like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
-	'Correct load_module_ok() warning';
+        like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
+        'Correct load_module_ok() warning';
    }
 
     is $app->convert( \<<'EOD' ),
@@ -282,10 +282,10 @@ EOD
    'Convert $TODO to $todo';
 
     {
-	my $warning;
-	local $SIG{__WARN__} = sub { $warning = $_[0] };
+        my $warning;
+        local $SIG{__WARN__} = sub { $warning = $_[0] };
 
-	is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 
@@ -293,7 +293,7 @@ use Test::More;
 
 my $bldr = Test::More->builder();
 EOD
-	<<'EOD',
+        <<'EOD',
 use strict;
 use warnings;
 
@@ -301,18 +301,18 @@ use Test2::V0;
 
 my $bldr = Test::More->builder();
 EOD
-	'Warn on Test::More->builder()';
+        'Warn on Test::More->builder()';
 
-	like $warning,
-	    qr{\bTest::More->builder\(\);@{[ CLASS->CONVERT_BY_HAND ]}},
-	    'Correct Test::More->builder() warning';
+        like $warning,
+            qr{\bTest::More->builder\(\);@{[ CLASS->CONVERT_BY_HAND ]}},
+            'Correct Test::More->builder() warning';
     }
 
     {
-	my $warning;
-	local $SIG{__WARN__} = sub { $warning = $_[0] };
+        my $warning;
+        local $SIG{__WARN__} = sub { $warning = $_[0] };
 
-	is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
@@ -321,7 +321,7 @@ use Test::More;
     local $Test::Builder::Level = $Test::Builder::Level + 1;
 }
 EOD
-	<<'EOD',
+        <<'EOD',
 use strict;
 use warnings;
 use Test2::V0;
@@ -333,23 +333,23 @@ use Test::Builder ();
 EOD
        'Handle $Test::Builder::Level';
 
-	like $warning,
-	    qr{\bAdded 'use Test::Builder' in\b},
-	    'Correct $Test::Builder::Level warning';
+        like $warning,
+            qr{\bAdded 'use Test::Builder' in\b},
+            'Correct $Test::Builder::Level warning';
     }
 
     {
-	my $warning;
-	local $SIG{__WARN__} = sub { $warning = $_[0] };
+        my $warning;
+        local $SIG{__WARN__} = sub { $warning = $_[0] };
 
-	is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
 
 isa_ok( Foo => 'Bar' );
 EOD
-	<<'EOD',
+        <<'EOD',
 use strict;
 use warnings;
 use Test2::V0;
@@ -358,16 +358,16 @@ isa_ok( Foo => 'Bar' );
 EOD
        'Handle isa_ok with two arguments';
 
-	is $warning, undef, 'isa_ok() with two arguments: no warning';
+        is $warning, undef, 'isa_ok() with two arguments: no warning';
 
-	is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
 
 isa_ok( Foo => 'Bar', 'Is Foo a Bar' );
 EOD
-	<<'EOD',
+        <<'EOD',
 use strict;
 use warnings;
 use Test2::V0;
@@ -376,9 +376,9 @@ isa_ok( Foo => 'Bar', 'Is Foo a Bar' );
 EOD
        'Handle isa_ok with three arguments';
 
-	like $warning,
-	    qr{\bmore than two arguments\b},
-	    'Correct warning from isa_ok() with three arguments';
+        like $warning,
+            qr{\bmore than two arguments\b},
+            'Correct warning from isa_ok() with three arguments';
     }
 }
 
@@ -409,12 +409,76 @@ EOD
    'Convert use_ok() using load_module_ok()';
 
     like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
-	'Correct load_module_ok() warning';
+        'Correct load_module_ok() warning';
 
+}
+
+{
+    my $app = CLASS->new( bail_on_fail => 1 );
+    my $warning;
+    local $SIG{__WARN__} = sub { $warning = $_[0] };
+
+    is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
+is foo(), 'bar'
+    or BAIL_OUT 'Eject! Eject!';
+
+done_testing;
+EOD
+    <<'EOD',
+use strict;
+use warnings;
+use Test2::V0;
+use Test2::Plugin::BailOnFail;
+
+is foo(), 'bar';
+
+done_testing;
+EOD
+   'Use Test2::Plugin::BailOnFail instead of BAIL_OUT()';
+
+    like $warning, qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+        'Correct Test2::Plugin::BailOnFail warning';
+}
+
+{
+    my $app = CLASS->new( use_context => 1 );
+    my $warning;
+    local $SIG{__WARN__} = sub { $warning = $_[0] };
+
+        is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
+{
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+}
+EOD
+        <<'EOD',
+use strict;
+use warnings;
+use Test2::V0;
+use Scope::Guard;
+
+{
+    my $scope_guard = do {
+        my $ctx = context();
+        Scope::Guard->new( sub { $ctx->release() } );
+    };
+}
+EOD
+       'Convert $Test::Builder::Level';
+
+    like $warning, qr/\AAdded 'use Scope::Guard' in\b/,
+        'Correct Scope::Guard warning';
 }
 
 done_testing;
 
 1;
 
-# ex: set textwidth=72 :
+# ex: set textwidth=72 expandtab :

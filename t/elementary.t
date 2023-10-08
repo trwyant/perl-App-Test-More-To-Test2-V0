@@ -5,6 +5,8 @@ use 5.014;
 use strict;
 use warnings;
 
+use Errno qw{ ENOENT };
+
 use Test2::V0 -target => 'App::Test::More::To::Test2::V0';
 
 {
@@ -388,6 +390,42 @@ EOD
 
     like $warning, qr/\AAdded 'use Scope::Guard' in\b/,
         'Correct Scope::Guard warning';
+}
+
+{
+    my $exception = dies {
+        my $app = CLASS->new( the_answer => 42 );
+    };
+
+    like $exception, qr/\AUnsupported arguments: the_answer\b/,
+        'Correct unsupported argument exception';
+}
+
+{
+    my $app = CLASS->new();
+
+    my $exception = dies {
+        $app->convert( 't/no_such_file.t' );
+    };
+
+    local $! = ENOENT;
+    like $exception, qr<\AFailed to open t/no_such_file.t: $!>,
+        'Correct exception for missing file';
+}
+
+{
+    my $app = CLASS->new();
+
+    my $exception = dies {
+        $app->_parse_string_for(
+            'use Test2::V0;',
+            'PPI::Statement::Variable',
+        );
+    };
+
+    like $exception,
+        qr<\ABug - Parsing 'use Test2::V0;' did not produce a PPI::Statement::Variable\b>,
+    'Correct exception for bug';
 }
 
 done_testing;

@@ -32,6 +32,7 @@ sub author {
 sub build_requires {
     return +{
 	ok		=> 0,
+	'Errno'		=> 0,
 	'Scope::Guard'	=> 0,
 	'Test::Builder'	=> 0,
 	'Test2::V0'	=> 0,

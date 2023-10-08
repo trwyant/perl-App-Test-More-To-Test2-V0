@@ -21,7 +21,7 @@ sub new {
 
     {
 	no warnings qw{ once };
-	$Carp::verbose
+	$Carp::Verbose
 	    and delete $arg{die};
     }
 
@@ -34,7 +34,7 @@ sub new {
     }, $class;
     keys %arg
 	and $self->__croak( 'Unsupported arguments: ',
-	join ', ', map { "'$_'" } sort keys %arg );
+	join ', ', sort keys %arg );
     return $self;
 }
 
@@ -741,7 +741,7 @@ If this Boolean argument is true errors will be reported using L<warn>
 or L<die> as appropriate. If false, they will be reported using
 L<Carp::carp()|Carp> or L<Carp::croak()|Carp>.
 
-B<Note> that this argument is ignored if C<$Carp::verbose> is true.
+B<Note> that this argument is ignored if C<$Carp::Verbose> is true.
 
 The default is false.
 

@@ -21,16 +21,16 @@ GetOptions( \%opt,
     help => sub { pod2usage( { -verbose => 2 } ) },
 ) or pod2usage( { -verbose => 0 } );
 
+@ARGV
+    or @ARGV = bsd_glob( 't/*.t' );
+
+delete $opt{slurp}
+    and @ARGV = map { slurp( $_ ) } @ARGV;
+
 my $app = App::Test::More::To::Test2::V0->new(
     %opt,
     die		=> 1,
 );
-
-@ARGV
-    or @ARGV = bsd_glob( 't/*.t' );
-
-$opt{slurp}
-    and @ARGV = map { slurp( $_ ) } @ARGV;
 
 foreach my $file ( @ARGV ) {
     if ( ref $file ) {

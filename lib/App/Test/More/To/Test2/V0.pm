@@ -13,7 +13,7 @@ our $VERSION = '0.000_001';
 use constant CONVERT_BY_HAND	=> ' must be converted by hand';
 
 # From Perl::Critic::Utils
-my $MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST =
+use constant MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST =>
     PPIx::Utils::precedence_of( 'not' );
 
 sub new {
@@ -217,27 +217,21 @@ sub _convert_sub__named__isa_ok {
 sub _convert_sub__named__plan {
     my ( $self, $from ) = @_;	# $to unused
     if ( $from->{ele}->isa( 'PPI::Token::Word' ) ) {
-	my @arg = PPIx::Utils::parse_arg_list( $from->{ele} );
+	my @from_arg = PPIx::Utils::parse_arg_list( $from->{ele} );
 
-	# FIXME this is replicated
-	state $sub_map = {
-	    tests	=> 'plan',
-	    skip_all	=> 'skip_all',
-	};
-
-	if ( @arg == 2
-		and @{ $arg[0] } == 1
-		and my $sub_name = $sub_map->{$arg[0][0]}
+	if ( @from_arg == 2
+		and @{ $from_arg[0] } == 1
+		and my $from_name = _map_plan_arg_to_sub_name( $from_arg[0][0] )
 	) {
 
-	    my $sub_arg = "@{ $arg[1] }";
+	    my $from_arg_1 = "@{ $from_arg[1] }";
 	    my $next_sib = $from->{ele}->snext_sibling();
 	    if ( $next_sib->isa( 'PPI::Structure::List' ) ) {
 		my $list = $self->_parse_string_for(
-		    "( $sub_arg )",
+		    "( $from_arg_1 )",
 		    'PPI::Structure::List',
 		);
-		$next_sib->replace( $list->remove() );
+		$next_sib->replace( $list );
 	    } else {
 		my $iter = $from->{ele};
 		my $insert_after = $next_sib->previous_sibling();
@@ -245,10 +239,13 @@ sub _convert_sub__named__plan {
 		# NOTE The following code is cribbed shamelessly from
 		# PPIx::Utils::Traversal::parse_arg_list().
 		while ( $iter = $iter->next_sibling() ) {
-		    last if $iter->isa('PPI::Token::Structure') && $iter eq ';';
-		    last if $iter->isa('PPI::Token::Operator')
-			&& $MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST <=
-			    PPIx::Utils::precedence_of( $iter );
+		    $iter->isa( 'PPI::Token::Structure' )
+			and $iter eq ';'
+			and last;
+		    $iter->isa('PPI::Token::Operator')
+			and MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST <=
+			    PPIx::Utils::precedence_of( $iter )
+			and last;
 		    push @arg_list, $iter;
 		}
 		# NOTE The preceding code is cribbed shamelessly from
@@ -260,13 +257,13 @@ sub _convert_sub__named__plan {
 		# FIXME __insert_after() is an encapsulation violation,
 		# but insert() will not insert a PPI::Statement, at
 		# least not as of 1.276
-		$insert_after->__insert_after( $_->remove() )
-		    for reverse $self->_parse_string_kids( $sub_arg );
+		$insert_after->__insert_after( $_ )
+		    for reverse $self->_parse_string_kids( $from_arg_1 );
 	    }
-	    $sub_name ne $from->{name}
-		and $from->{ele}->replace( PPI::Token::Word->new( $sub_name ) );
+	    $from_name ne $from->{name}
+		and $from->{ele}->replace( PPI::Token::Word->new( $from_name ) );
 
-	} elsif ( @arg == 1 ) {
+	} elsif ( @from_arg == 1 ) {
 	    # Do nothing, because we have already been converted.
 	} else {
 	    $self->__carp( $from->{ele}, ' ', CONVERT_BY_HAND );
@@ -292,7 +289,7 @@ sub _convert_sub__named__use_ok {
 	    $to_text, 'PPI::Statement::Include',
 	);
 
-	$from_stmt->replace( $to_stmt->remove() );
+	$from_stmt->replace( $to_stmt );
 	return(
 	    use_ok => sub {
 		$self->__carp(
@@ -430,15 +427,12 @@ sub _convert_use {
 	    if ( @arg ) {
 
 		@arg = map { _ppi_to_string( @{ $_ } ) } @arg;
-		state $sub_map = {
-		    tests	=> 'plan',
-		    skip_all	=> 'skip_all',
-		};
+
 		@arg == 2
-		    and $sub_map->{$arg[0]}
+		    and my $sub_name = _map_plan_arg_to_sub_name( $arg[0] )
 		    or $self->__croak( "'use Test::More @arg;' unsupported" );
 
-		$self->_add_code( "$sub_map->{$arg[0]}( $arg[1] );" );
+		$self->_add_code( "$sub_name( $arg[1] );" );
 	    }
 	}
 
@@ -513,7 +507,7 @@ sub _add_use {
     # FIXME __insert_after() is an encapsulation violation, but
     # insert_after() will not insert a PPI::Statement, at least not as
     # of 1.276
-    $use_test2_v0->__insert_after( $_->remove() )
+    $use_test2_v0->__insert_after( $_ )
 	for reverse @kids;
     $self->__carp(
 	"Added 'use $module'",
@@ -599,6 +593,15 @@ sub _is_goto {
     my $prev = $ele->sprevious_sibling()
 	or return;
     return $prev->isa( 'PPI::Token::Word' ) && $prev eq 'goto';
+}
+
+sub _map_plan_arg_to_sub_name {
+    my ( $arg ) = @_;
+    state $sub_map = {
+	tests	=> 'plan',
+	skip_all	=> 'skip_all',
+    };
+    return $sub_map->{$arg};
 }
 
 sub _parse_string {

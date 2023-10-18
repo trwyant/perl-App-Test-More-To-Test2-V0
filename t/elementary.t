@@ -119,6 +119,16 @@ use strict;
 use warnings;
 use Test::More;
 
+plan( 'skip_all', 'Taking the day off' );
+EOD
+        slurp( 't/test2_import_skip_all_list.t' ),
+        q{Convert plan( 'skip_all', 'Taking the day off' )};
+
+    is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
 my %data = (
     foo => 'bar',
     answer      => [ 42 ],
@@ -188,6 +198,7 @@ use warnings;
 use Test2::V0;
 
 sub BAIL_OUT { Test2::API::context()->bail( @_ ) }
+
 is foo(), 'bar'
     or BAIL_OUT 'Eject! Eject!';
 

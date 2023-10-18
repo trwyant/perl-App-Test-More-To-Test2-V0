@@ -153,25 +153,18 @@ sub _convert_sub__named__BAIL_OUT {
 
 	my $ele = $self->_delete_elements( $bail );
 
-	state $unwanted = { map { $_ => 1 } do {
-		no warnings qw{ qw };	## no critic (ProhibitNoWarnings)
-		qw{ and or xor ; }
-	    }
-	};
-
-	$ele
-	    and $unwanted->{$ele}
+	not _ele_is_valid_arg( $ele )
 	    and $self->_delete_elements( $ele );
 
 	$ele = $next_sib;
-	while ( $ele && ! $unwanted->{$ele} ) {
+	while ( _ele_is_valid_arg( $ele ) ) {
 	    $ele = $self->_delete_elements( $ele, 1 );
 	}
 
 	$rslt = sub { return $_[0]->_add_use( 'Test2::Plugin::BailOnFail' ) };
     } else {
 	$rslt = sub {
-	    return $_[0]->_add_code(
+	    return $_[0]->_add_statement(
 		'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
 	    );
 	};
@@ -184,24 +177,6 @@ sub _convert_sub__named__builder {
     my ( $self, $from ) = @_;	# $to unused
     PPIx::Utils::is_method_call( $from->{ele} )
 	or return;
-
-=begin comment
-
-    my $sib = $from->{ele}->sprevious_sibling()
-	or return;
-    $sib->isa( 'PPI::Token::Operator' )
-	and $sib->content() eq '->'
-	or return;
-    $sib = $sib->sprevious_sibling()
-	or return;
-    $sib->isa( 'PPI::Token::Word' )
-	and $sib->content() eq 'Test::More'
-	or return;
-
-=end comment
-
-=cut
-
     $self->__carp( $from->{ele}->statement(), CONVERT_BY_HAND );
     return;
 }
@@ -216,6 +191,7 @@ sub _convert_sub__named__isa_ok {
 
 sub _convert_sub__named__plan {
     my ( $self, $from ) = @_;	# $to unused
+
     if ( $from->{ele}->isa( 'PPI::Token::Word' ) ) {
 	my @from_arg = PPIx::Utils::parse_arg_list( $from->{ele} );
 
@@ -224,42 +200,8 @@ sub _convert_sub__named__plan {
 		and my $from_name = _map_plan_arg_to_sub_name( $from_arg[0][0] )
 	) {
 
-	    my $from_arg_1 = "@{ $from_arg[1] }";
-	    my $next_sib = $from->{ele}->snext_sibling();
-	    if ( $next_sib->isa( 'PPI::Structure::List' ) ) {
-		my $list = $self->_parse_string_for(
-		    "( $from_arg_1 )",
-		    'PPI::Structure::List',
-		);
-		$next_sib->replace( $list );
-	    } else {
-		my $iter = $from->{ele};
-		my $insert_after = $next_sib->previous_sibling();
-		my @arg_list;
-		# NOTE The following code is cribbed shamelessly from
-		# PPIx::Utils::Traversal::parse_arg_list().
-		while ( $iter = $iter->next_sibling() ) {
-		    $iter->isa( 'PPI::Token::Structure' )
-			and $iter eq ';'
-			and last;
-		    $iter->isa('PPI::Token::Operator')
-			and MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST <=
-			    PPIx::Utils::precedence_of( $iter )
-			and last;
-		    push @arg_list, $iter;
-		}
-		# NOTE The preceding code is cribbed shamelessly from
-		# PPIx::Utils::Traversal::parse_arg_list().
-		shift @arg_list while @arg_list && ! $arg_list[0]->significant();
-		pop @arg_list while @arg_list && ! $arg_list[-1]->significant();
-		$_->delete() for @arg_list;
+	    $self->_replace_sub_args( $from->{ele}, "@{ $from_arg[1] }" );
 
-		# FIXME __insert_after() is an encapsulation violation,
-		# but insert() will not insert a PPI::Statement, at
-		# least not as of 1.276
-		$insert_after->__insert_after( $_ )
-		    for reverse $self->_parse_string_kids( $from_arg_1 );
-	    }
 	    $from_name ne $from->{name}
 		and $from->{ele}->replace( PPI::Token::Word->new( $from_name ) );
 
@@ -315,8 +257,6 @@ sub _convert_sub__rename {
 sub _convert_sub__symbol__TODO {
     my ( $self, $from ) = @_;
 
-    $DB::single = 1;
-
     my $stmt = $from->{ele}->statement()
 	or return;
     $stmt->isa( 'PPI::Statement::Variable' )
@@ -341,8 +281,7 @@ sub _convert_sub__symbol__TODO {
     my $my = PPI::Token::Word->new( 'my' );
     $local->replace( $my );
 
-    # FIXME __insert_after() is an encapsulation violation.
-    $assign->__insert_after( $_ ) for reverse $self->_parse_string_kids(
+    $assign->insert_after( $_ ) for reverse $self->_parse_string_parts(
 	$todo );
 
     return;
@@ -432,7 +371,7 @@ sub _convert_use {
 		    and my $sub_name = _map_plan_arg_to_sub_name( $arg[0] )
 		    or $self->__croak( "'use Test::More @arg;' unsupported" );
 
-		$self->_add_code( "$sub_name( $arg[1] );" );
+		$self->_add_statement( "$sub_name( $arg[1] );" );
 	    }
 	}
 
@@ -443,49 +382,31 @@ sub _convert_use {
     return $rslt;
 }
 
-sub _add_code {
-    my ( $self, $code ) = @_;
+sub _add_statement {
+    my ( $self, $statement ) = @_;
 
-    unless ( $self->{_cvt}{code} ) {
-	my $ele = $self->_find_use( 'Test2::V0' );
-	my $next;
+    $statement =~ s/ \s+ \z //smx;
+    $statement =~ s/ \A \s* /\n/smx;
+    unless ( $self->{_cvt}{statement} ) {
+	my $use = $self->_find_use( 'Test2::V0' );
 	while ( 1 ) {
-	    $next = $ele->snext_sibling()
+	    my $next = $use->snext_sibling()
 		or last;
 	    $next->isa( 'PPI::Statement::Include' )
-		and next;
-	    $ele = $next->previous_sibling();
-	    last;
-
-	} continue {
-	    $ele = $next;
+		or last;
+	    $use = $next;
 	}
-	$self->{_cvt}{code} = $ele;
-
-	$ele =~ m/ \n \z /smx
-	    or substr $code, 0, 0, "\n";
-
-	$self->{_cvt}{code_end} = '';
-	$next = $ele->next_sibling()
-	    and $next =~ m/ \A \n /smx
-	    or $self->{_cvt}{code_end} = "\n";
+	$self->{_cvt}{statement} = $use;
+	$statement = "\n$statement";
     }
-
-    $self->{_cvt}{code} =~ m/ \n \z /smx
-	or substr $code, 0, 0, "\n";
-    $code .= $self->{_cvt}{code_end};
-
-    my @kids = $self->_parse_string_kids( $code );
-
-    # FIXME __insert_after() is an encapsulation violation, but
-    # insert_after() will not insert a PPI::Statement, at least not as
-    # of 1.276
-    foreach my $kid ( reverse @kids ) {
-	$self->{_cvt}{code}->__insert_after( $kid );
+    my @add = $self->_parse_string_kids( $statement );
+    $self->{_cvt}{statement}->__insert_after( $_ ) for reverse @add;
+    foreach ( reverse @add ) {
+	$_->isa( 'PPI::Statement' )
+	    or next;
+	$self->{_cvt}{statement} = $_;
+	last;
     }
-
-    $self->{_cvt}{code} = $kids[-1];
-
     return;
 }
 
@@ -515,8 +436,15 @@ sub _add_use {
     return;
 }
 
+# Given an element and a direction (next if $forward is true, else
+# previous), delete the given element and all insignificant siblings
+# adjacent in the given direction. The first undeleted sibling is
+# returned, or a false value if no significant sibling in the given
+# direction.
 sub _delete_elements {
     my ( undef, $ele, $forward ) = @_;
+    $ele
+	or return $ele;
     my $method = $forward ? 'next_sibling' : 'previous_sibling';
     my $sib = $ele->$method();
     $ele->delete();
@@ -528,6 +456,22 @@ sub _delete_elements {
 	$ele->delete();
     }
     return $sib;
+}
+
+# Support for _replace_sub_args
+sub _ele_is_valid_arg {
+    my ( $ele ) = @_;
+    $ele
+	or return 0;
+    my $content = $ele->content();
+    $ele->isa( 'PPI::Token::Structure' )
+	and $content eq ';'
+	and return 0;
+    $ele->isa( 'PPI::Token::Operator' )
+	and PPIx::Utils::precedence_of( $ele ) >=
+	    MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST
+	and return 0;
+    return $ele;
 }
 
 sub _find_use {
@@ -597,11 +541,14 @@ sub _is_goto {
 
 sub _map_plan_arg_to_sub_name {
     my ( $arg ) = @_;
+    my $key = ( ref $arg && $arg->isa( 'PPI::Token::Quote' ) ) ?
+	$arg->string() :
+	"$arg";
     state $sub_map = {
 	tests	=> 'plan',
 	skip_all	=> 'skip_all',
     };
-    return $sub_map->{$arg};
+    return $sub_map->{$key};
 }
 
 sub _parse_string {
@@ -632,6 +579,16 @@ sub _parse_string_kids {
     return $kids[0]->remove();
 }
 
+sub _parse_string_parts {
+    my ( $self, $string ) = @_;
+    my $doc = $self->_parse_string( $string );
+    return(
+	map { $_->remove() }
+	map { $_->isa( 'PPI::Statement' ) ? $_->children() : $_ }
+	$doc->children()
+    );
+}
+
 sub _ppi_to_string {
     my @arg = @_;
     foreach ( @arg ) {
@@ -640,6 +597,48 @@ sub _ppi_to_string {
 	$_ = $code->( $_ );
     }
     return "@arg";
+}
+
+# $self->_replace_sub_args( $ele, $string )
+sub _replace_sub_args {
+    my ( $self, $ele, $string ) = @_;
+
+    $ele
+	or $self->__croak( 'No subroutine name supplied' );
+
+    my @pad;
+
+    if ( my $arg = _ele_is_valid_arg( $ele->snext_sibling() ) ) {
+	{
+	    my $sib = $ele;
+	    while ( $sib = $sib->next_sibling() and not
+		$sib->significant() ) {
+		push @pad, $sib->remove();
+	    }
+	}
+	if ( $arg->isa( 'PPI::Structure::List' ) ) {
+	    $arg->delete();
+	    defined $string
+		and $string = "( $string )";
+	} else {
+	    while ( 1 ) {
+		my $sib = $arg->next_sibling();
+		$arg->delete();
+		$arg = _ele_is_valid_arg( $sib )
+		    or last;
+	    }
+	}
+    }
+
+    defined $string
+	and push @pad, $self->_parse_string_parts( $string );
+
+    # NOTE I consider this fragile. PPI tries to enforce consistency
+    # under modification by restricting the inserts after a PPI::Token
+    # (which we are working with here) or a PPI::Structure.
+    $ele->insert_after( $_ ) for reverse @pad;
+
+    return;
 }
 
 sub _strip_sigil {

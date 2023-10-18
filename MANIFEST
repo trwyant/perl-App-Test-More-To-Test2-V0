@@ -19,6 +19,7 @@ t/test2_import_plan_fat_comma.t
 t/test2_import_plan_list.t
 t/test2_import_plan_list_fat_comma.t
 t/test2_import_skip_all.t
+t/test2_import_skip_all_list.t
 t/test2_is_deeply.t
 t/test2_isa_ok_2.t
 t/test2_require_ok.t

@@ -192,6 +192,8 @@ sub _convert_sub__named__isa_ok {
 sub _convert_sub__named__plan {
     my ( $self, $from ) = @_;	# $to unused
 
+    $DB::single = 1;
+
     if ( $from->{ele}->isa( 'PPI::Token::Word' ) ) {
 	my @from_arg = PPIx::Utils::parse_arg_list( $from->{ele} );
 

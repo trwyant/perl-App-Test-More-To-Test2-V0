@@ -49,7 +49,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_import_plan_fat_comma.t' ),
+        slurp( 't/test2_plan_list.t' ),
        'Convert use Test::More tests => 2';
 
     is $app->convert( \<<'EOD' ),
@@ -61,7 +61,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_import_plan_comma.t' ),
+        slurp( 't/test2_plan_list.t' ),
         q<Convert use Test::More 'tests', 2>;
 
     is $app->convert( \<<'EOD' ),
@@ -73,7 +73,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_import_plan_list.t' ),
+        slurp( 't/test2_plan_list.t' ),
         q<Convert use Test::More ( 'tests', 2 )>;
 
     is $app->convert( \<<'EOD' ),
@@ -87,13 +87,13 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_import_plan_list_fat_comma.t' ),
+        slurp( 't/test2_plan_list.t' ),
         q{Convert plan( tests => 2 )};
 
     is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
-use Test::More
+use Test::More;
 
 plan tests => 2;
 
@@ -101,7 +101,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_runtime_plan_fat_comma.t' ),
+        slurp( 't/test2_plan_bare.t' ),
         q{Convert plan tests => 2};
 
     is $app->convert( \<<'EOD' ),
@@ -111,7 +111,7 @@ use Test::More;
 
 plan skip_all => 'Taking the day off';
 EOD
-        slurp( 't/test2_import_skip_all.t' ),
+        slurp( 't/test2_skip_all_bare.t' ),
         q{Convert plan skip_all => 'Taking the day off'};
 
     is $app->convert( \<<'EOD' ),
@@ -121,7 +121,7 @@ use Test::More;
 
 plan( 'skip_all', 'Taking the day off' );
 EOD
-        slurp( 't/test2_import_skip_all_list.t' ),
+        slurp( 't/test2_skip_all_list.t' ),
         q{Convert plan( 'skip_all', 'Taking the day off' )};
 
     is $app->convert( \<<'EOD' ),
@@ -156,7 +156,7 @@ use_ok 'Text::Wrap';
 
 done_testing;
 EOD
-            slurp( 't/test2_use_ok.t' ),
+            slurp( 't/test2_use_ok_ok.t' ),
             'Convert use_ok() using use ok ...';
     };
 

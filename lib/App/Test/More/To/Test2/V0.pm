@@ -204,6 +204,8 @@ sub _convert_sub__named__plan {
 
 	    $self->_replace_sub_args( $from->{ele}, "@{ $from_arg[1] }" );
 
+	    # FIXME Encapsulation violation. The new() method is
+	    # undocumented but somewhat widely used outside PPI.
 	    $from_name ne $from->{name}
 		and $from->{ele}->replace( PPI::Token::Word->new( $from_name ) );
 
@@ -249,9 +251,9 @@ sub _convert_sub__rename {
 
     # FIXME Encapsulation violation. The new() method is undocumented
     # but somewhat widely used outside PPI.
-    my $to_ele = $from->{class}->new( "$from->{sigil}$to->{name}" );
-
-    $from->{ele}->replace( $to_ele );
+    $from->{ele}->replace(
+	$from->{class}->new( "$from->{sigil}$to->{name}" )
+    );
 
     return;
 }
@@ -279,9 +281,9 @@ sub _convert_sub__symbol__TODO {
 	or return;
     my $todo = $rhs->isa( 'PPI::Token::Whitespace' ) ? ' todo' : ' todo ';
 
-    # FIXME encapsulation violation. new() is undocumented.
-    my $my = PPI::Token::Word->new( 'my' );
-    $local->replace( $my );
+    # FIXME Encapsulation violation. The new() method is undocumented
+    # but somewhat widely used outside PPI.
+    $local->replace( PPI::Token::Word->new( 'my' ) );
 
     $assign->insert_after( $_ ) for reverse $self->_parse_string_parts(
 	$todo );
@@ -402,7 +404,7 @@ sub _add_statement {
 	$statement = "\n$statement";
     }
     my @add = $self->_parse_string_kids( $statement );
-    $self->{_cvt}{statement}->__insert_after( $_ ) for reverse @add;
+    $self->{_cvt}{statement}->insert_after( $_ ) for reverse @add;
     foreach ( reverse @add ) {
 	$_->isa( 'PPI::Statement' )
 	    or next;
@@ -427,10 +429,7 @@ sub _add_use {
 	}
     );
     $self->{_cvt}{use}{$module} = $kids[-1];
-    # FIXME __insert_after() is an encapsulation violation, but
-    # insert_after() will not insert a PPI::Statement, at least not as
-    # of 1.276
-    $use_test2_v0->__insert_after( $_ )
+    $use_test2_v0->insert_after( $_ )
 	for reverse @kids;
     $self->__carp(
 	"Added 'use $module'",
@@ -673,21 +672,15 @@ sub __confess {	## no critic (RequireArgUnpacking)
 
 sub __croak {	## no critic (RequireArgUnpacking)
     my ( $self, @args ) = @_;
+    chomp $args[-1];
     if ( $self->{die} ) {
-	__unchomp( $args[-1] );
-	die @args;
+	die @args, "\n";
     } else {
 	chomp $args[-1];
 	require Carp;
 	@_ = @args;
 	goto &Carp::croak;
     }
-    return;
-}
-
-sub __unchomp {
-    rindex( $_[0], $/ ) eq length( $_[0] ) - length( $/ )
-	or $_[0] .= $/;
     return;
 }
 

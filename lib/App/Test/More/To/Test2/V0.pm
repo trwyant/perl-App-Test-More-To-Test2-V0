@@ -359,38 +359,57 @@ sub _convert_use {
 	@{ $self->{_cvt}{doc}->find( 'PPI::Statement::Include' ) || [] }
     ) {
 
-	( $use->module() // '' ) eq 'Test::More'
+	state $use_map	= {
+	    'Test::More'	=> {
+		to	=> 'Test2::V0',
+		quiet	=> 1,
+		handler	=> \&_convert_use__module__test_more,
+	    },
+	};
+
+	my $info = $use_map->{ $use->module() // '' }
 	    or next;
+
 	my $type = $use->type();
 
 	my $repl = $self->_parse_string_for(
-	    "$type Test2::V0;",
+	    "$type $info->{to};",
 	    'PPI::Statement::Include',
 	);
 	$use->replace( $repl );
-	$self->{_cvt}{use}{'Test2::V0'} ||= $repl;
+	$self->{_cvt}{use}{$info->{to}} ||= $repl;
 
+	$info->{quiet}
+	    or $self->__carp( "Replaced '$use' with '$type $info->{to};'" );
 
-	if ( my $start = _find_use_arg_start_point( $use ) ) {
-	    my @arg = PPIx::Utils::parse_arg_list( $start );
-
-	    if ( @arg ) {
-
-		@arg = map { _ppi_to_string( @{ $_ } ) } @arg;
-
-		@arg == 2
-		    and my $sub_name = _map_plan_arg_to_sub_name( $arg[0] )
-		    or $self->__croak( "'use Test::More @arg;' unsupported" );
-
-		$self->_add_statement( "$sub_name( $arg[1] );" );
-	    }
-	}
+	$info->{handler}
+	    and $info->{handler}->( $self, $use );
 
 	$rslt++;
-
     }
 
     return $rslt;
+}
+
+sub _convert_use__module__test_more {
+    my ( $self, $use ) = @_;
+
+    if ( my $start = _find_use_arg_start_point( $use ) ) {
+	my @arg = PPIx::Utils::parse_arg_list( $start );
+
+	if ( @arg ) {
+
+	    @arg = map { _ppi_to_string( @{ $_ } ) } @arg;
+
+	    @arg == 2
+		and my $sub_name = _map_plan_arg_to_sub_name( $arg[0] )
+		or $self->__croak( "'use Test::More @arg;' unsupported" );
+
+	    $self->_add_statement( "$sub_name( $arg[1] );" );
+	}
+    }
+
+    return 1;
 }
 
 sub _add_statement {

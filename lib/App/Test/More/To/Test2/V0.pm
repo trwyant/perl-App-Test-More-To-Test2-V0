@@ -184,15 +184,22 @@ sub _convert_sub__named__builder {
 sub _convert_sub__named__isa_ok {
     my ( $self, $from ) = @_;	# $to unused
     my @arg = PPIx::Utils::parse_arg_list( $from->{ele} );
-    @arg > 2
-	and $self->__carp( 'isa_ok() has more than two arguments' );
+    if ( @arg > 2 ) {
+	my $punc = ',';
+	if ( @{ $arg[0] } == 1 && $arg[0][0]->isa( 'PPI::Token::Word' ) ) {
+	    if ( $arg[0][0] =~ m/ \A \w+ \z /smx ) {
+		$punc = ' =>';
+	    } else {
+		$arg[0][0] = "'$arg[0][0]'";
+	    }
+	}
+	$self->_replace_sub_args( $from->{ele}, "@{ $arg[0] }$punc @{ $arg[1] }" );
+    }
     return;
 }
 
 sub _convert_sub__named__plan {
     my ( $self, $from ) = @_;	# $to unused
-
-    $DB::single = 1;
 
     if ( $from->{ele}->isa( 'PPI::Token::Word' ) ) {
 	my @from_arg = PPIx::Utils::parse_arg_list( $from->{ele} );

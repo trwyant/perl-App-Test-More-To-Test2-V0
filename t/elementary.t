@@ -222,7 +222,6 @@ EOD
         slurp( 't/test2_todo.t' ),
        'Convert $TODO';
 
-
     $warning = warning {
         is $app->convert( \<<'EOD' ),
 use strict;
@@ -289,7 +288,6 @@ EOD
 
     is $warning, undef, 'isa_ok() with two arguments: no warning';
 
-    # TODO figure out how to execute this test.
     $warning = warning {
         is $app->convert( \<<'EOD' ),
 use strict;
@@ -302,23 +300,11 @@ isa_ok( Foo => 'Bar', 'Is Foo a Bar' );
 
 done_testing;
 EOD
-        <<'EOD',
-use strict;
-use warnings;
-use Test2::V0;
-
-sub Foo::isa { return $_[1] eq 'Bar' }
-
-isa_ok( Foo => 'Bar', 'Is Foo a Bar' );
-
-done_testing;
-EOD
+            slurp( 't/test2_isa_ok_2.t' ),
         'Handle isa_ok with three arguments';
     };
 
-    like $warning,
-        qr{\bmore than two arguments\b},
-        'Correct warning from isa_ok() with three arguments';
+    is $warning, undef, 'isa_ok() with three arguments: no warning';
 }
 
 {

@@ -36,6 +36,7 @@ sub build_requires {
 	'Scope::Guard'	=> 0,
 	'Test::Builder'	=> 0,
 	'Test2::V0'	=> 0,
+	'Test2::Plugin::NoWarnings'	=> 0,
 	'Test2::Plugin::BailOnFail'	=> 0,
 	'Test2::Tools::LoadModule'	=> 0,
     };

@@ -8,6 +8,7 @@ use warnings;
 use Errno qw{ ENOENT };
 
 use Test2::V0 -target => 'App::Test::More::To::Test2::V0';
+use Test2::Plugin::NoWarnings;
 
 {
     my $app = CLASS->new();
@@ -270,8 +271,7 @@ EOD
         qr{\bAdded 'use Test::Builder' in\b},
         'Correct $Test::Builder::Level warning';
 
-    $warning = warning {
-        is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
@@ -282,14 +282,10 @@ isa_ok( Foo => 'Bar' );
 
 done_testing;
 EOD
-            slurp( 't/test2_isa_ok_2.t' ),
-            'Handle isa_ok with two arguments';
-    };
+        slurp( 't/test2_isa_ok_2.t' ),
+        'Handle isa_ok with two arguments';
 
-    is $warning, undef, 'isa_ok() with two arguments: no warning';
-
-    $warning = warning {
-        is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
@@ -300,11 +296,8 @@ isa_ok( Foo => 'Bar', 'Is Foo a Bar' );
 
 done_testing;
 EOD
-            slurp( 't/test2_isa_ok_2.t' ),
+        slurp( 't/test2_isa_ok_2.t' ),
         'Handle isa_ok with three arguments';
-    };
-
-    is $warning, undef, 'isa_ok() with three arguments: no warning';
 }
 
 {
@@ -431,7 +424,7 @@ sub slurp {
     my ( $name ) = @_;
     open my $fh, '<:encoding(utf-8)', $name
         or return "Unable to open $name: $!\n";
-    local $/ = undef;
+    local $/ = undef;   # slurp mode
     return <$fh>;
 }
 

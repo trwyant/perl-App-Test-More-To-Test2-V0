@@ -79,11 +79,7 @@ sub _convert_sub {
 	},
 	isa_ok		=> \&_convert_sub__named__isa_ok,
 	plan		=> \&_convert_sub__named__plan,
-	require_ok	=> sub {
-	    return(
-		load_module	=> \&_convert_sub__fixup__load_module_ok,
-	    );
-	},
+	require_ok	=> \&_convert_sub__named__require_ok,
 	use_ok		=> \&_convert_sub__named__use_ok,
 
 	'Test::Builder::Level' => \&_convert_sub__symbol__test_builder_level,
@@ -228,29 +224,83 @@ sub _convert_sub__named__plan {
     return;
 }
 
-sub _convert_sub__named__use_ok {
+sub _convert_sub__named__require_ok {	# TODO not used yet
     my ( $self, $from ) = @_;	# $to unused
-    if ( $self->{load_module} ) {
-	return(
+
+    # TODO parallel construction. Make use_ok like this
+    $self->{load_module}
+	and return(
 	    load_module	=> \&_convert_sub__fixup__load_module_ok,
 	);
+
+    my @arg = PPIx::Utils::parse_arg_list( $from->{ele} );
+
+    my $module;
+    if ( @{ $arg[0] } == 1 && $arg[0][0]->isa( 'PPI::Token::Quote' ) ) {
+	$module = $arg[0][0]->string();
+	$module =~ m/ \A \w+ (?: :: \w+ )* \z /smx
+	    or $module = "@{ $arg[0] }";
     } else {
-	my $from_stmt = $from->{ele}->statement();
-	( my $to_text = $from_stmt->content() ) =~ s/ \b use_ok \b /use ok/smx;
-
-	my $to_stmt = $self->_parse_string_for(
-	    $to_text, 'PPI::Statement::Include',
-	);
-
-	$from_stmt->replace( $to_stmt );
-	return(
-	    use_ok => sub {
-		$self->__carp(
-		    "Added 'use ok'",
-		);
-	    },
-	);
+	$module = "@{ $arg[0] }";
     }
+
+    my $ele = $from->{ele}->next_sibling();
+    while ( _ele_is_valid_arg( $ele ) ) {
+	$ele = $self->_delete_elements( $ele, 1 );
+    }
+
+    my $repl_string = " lives { require $module }, 'require $module;'";
+    if ( $ele ) {
+	if ( $ele->isa( 'PPI::Token::Structure' ) && $ele eq ';') {
+	    $repl_string .= <<"END_OF_DATA";
+ or diag <<"EOD"
+    Tried to require '$module'
+    Error: \$@
+EOD
+END_OF_DATA
+	} else {
+	    $repl_string .= ' ';
+	}
+    }
+
+    my @repl = $self->_parse_string_parts( $repl_string );
+
+    $repl[-1]->isa( 'PPI::Token::Whitespace' )
+	and $repl[-1] eq "\n"
+	and pop @repl;
+
+    $from->{ele}->insert_after( $_ ) for reverse @repl;
+
+    # FIXME Encapsulation violation. The new() method is undocumented
+    # but somewhat widely used outside PPI.
+    $from->{ele}->replace( PPI::Token::Word->new( 'ok' ) );
+
+    return;
+}
+
+sub _convert_sub__named__use_ok {
+    my ( $self, $from ) = @_;	# $to unused
+
+    $self->{load_module}
+	and return(
+	    load_module	=> \&_convert_sub__fixup__load_module_ok,
+	);
+
+    my $from_stmt = $from->{ele}->statement();
+    ( my $to_text = $from_stmt->content() ) =~ s/ \b use_ok \b /use ok/smx;
+
+    my $to_stmt = $self->_parse_string_for(
+	$to_text, 'PPI::Statement::Include',
+    );
+
+    $from_stmt->replace( $to_stmt );
+    return(
+	use_ok => sub {
+	    $self->__carp(
+		"Added 'use ok'",
+	    );
+	},
+    );
 }
 
 sub _convert_sub__rename {
@@ -359,11 +409,20 @@ sub _convert_use {
 	@{ $self->{_cvt}{doc}->find( 'PPI::Statement::Include' ) || [] }
     ) {
 
+	# Keys:
+	#   to: Module to convert to; required.
+	#   quiet: True to suppress warnings; optional.
+	#   handler: Code to call after conversion done; optional.
+	#   arg: Arguments to add to new 'use' or 'no'; optional.
 	state $use_map	= {
 	    'Test::More'	=> {
 		to	=> 'Test2::V0',
 		quiet	=> 1,
 		handler	=> \&_convert_use__module__test_more,
+	    },
+	    'Test::Warnings'	=> {
+		to	=> 'Test2::Plugin::NoWarnings',
+		arg	=> 'echo => 1',
 	    },
 	};
 
@@ -371,16 +430,40 @@ sub _convert_use {
 	    or next;
 
 	my $type = $use->type();
+	
+	# True if a given PPI::Statement::Include type takes arguments.
+	state $arg_allowed = { map { $_ => 1 } qw{ use no } };
+
+	my $repl_text = "$type $info->{to}";
+	if ( defined $info->{arg} ) {
+	    if ( $arg_allowed->{$type} ) {
+		$repl_text .= " $info->{arg}";
+	    } else {
+		my $prefix;
+		my $prev_sib;
+		if ( $prev_sib = $use->previous_sibling()
+			and $prev_sib->isa( 'PPI::Token::Whitespace' ) ) {
+		    ( $prefix = $prev_sib->content() ) =~ s/ .* \n //smx;
+		    substr $prefix, 0, 0, "\n";
+		} else {
+		    $prefix = ' ';
+		}
+		$use->insert_after( $_ )
+		    for reverse $self->_parse_string_kids(
+			"$prefix$info->{to}->import( $info->{arg} );" );
+	    }
+	}
+	$repl_text .= ';';
 
 	my $repl = $self->_parse_string_for(
-	    "$type $info->{to};",
+	    $repl_text,
 	    'PPI::Statement::Include',
 	);
 	$use->replace( $repl );
 	$self->{_cvt}{use}{$info->{to}} ||= $repl;
 
 	$info->{quiet}
-	    or $self->__carp( "Replaced '$use' with '$type $info->{to};'" );
+	    or $self->__carp( "Replaced '$use' with '$repl_text'" );
 
 	$info->{handler}
 	    and $info->{handler}->( $self, $use );
@@ -889,16 +972,33 @@ the value of the first of the two arguments.
 
 =item require_ok()
 
-A C<use Test2::Tools::LoadModule ':more';> is added. A warning is
+If the L<load_module|/load_module> attribute is false or unspecified,
+all calls to C<require_ok( $module )> are changed to
+
+ ok lives { require $module }, "require $module";
+
+If the call to C<require_ok()> was followed by a semicolon (C<;>, rather
+than one of the loose-binding Boolean operators),
+
+ or diag <<"EOD"
+     Tried to require '$module'
+     Error: \$@
+ EOD
+
+is appended. B<Note> that the above is pseudo-code; the actual module
+specification will appear in place of C<$module>.
+
+If the L<load_module|/load_module> attribute is true, a
+C<use Test2::Tools::LoadModule ':more';> is added. A warning is
 generated, since this adds a dependency.
 
 =item use_ok()
 
-If the L<load_module|/load_module> attribute is true, all calls to
-C<use_ok( ... )> are changed to C<use ok ...>. A warning is generated,
-since this adds a dependency on C<ok>.
+If the L<load_module|/load_module> attribute is false or unspecified,
+all calls to C<use_ok( ... )> are changed to C<use ok ...>. A warning is
+generated, since this adds a dependency on C<ok>.
 
-If the L<load_module|/load_module> attribute is false or unspecified, a
+If the L<load_module|/load_module> attribute is true, a
 C<use Test2::Tools::LoadModule ':more';> is added. A warning is
 generated, since this adds a dependency.
 

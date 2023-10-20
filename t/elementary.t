@@ -8,7 +8,7 @@ use warnings;
 use Errno qw{ ENOENT };
 
 use Test2::V0 -target => 'App::Test::More::To::Test2::V0';
-use Test2::Plugin::NoWarnings;
+use Test2::Plugin::NoWarnings echo => 1;
 
 {
     my $app = CLASS->new();
@@ -164,22 +164,17 @@ EOD
     like $warning, qr/\AAdded 'use ok' in\b/,
         q<Correct 'use ok' warning>;
 
-    $warning = warning {
-        is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
 use Test::More;
 
-require_ok 'Text::Wrap';
+require_ok 'Test2::V0';
 
 done_testing;
 EOD
-            slurp( 't/test2_require_ok.t' ),
-            'Convert require_ok() using Test2::Tools::LoadModule';
-    };
-
-    like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
-        'Correct load_module_ok() warning';
+        slurp( 't/test2_require_ok.t' ),
+        'Convert require_ok() using Test2::Tools::LoadModule';
 
     # TODO figure out how to execute t/test2_bail_out.t without
     # terminating the entire test suite.
@@ -298,12 +293,62 @@ done_testing;
 EOD
         slurp( 't/test2_isa_ok_2.t' ),
         'Handle isa_ok with three arguments';
+
+    # NOTE this does not compare the output to a working test file
+    # because Test2::Plugin::NoWarnings is not part of Test2-Suite, so
+    # we do not know it is available.
+    $warning = warning {
+        is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+use Test::Warnings;
+
+ok 1, 'Copacetic';
+
+done_testing();
+EOD
+            <<'EOD',
+use strict;
+use warnings;
+use Test2::V0;
+use Test2::Plugin::NoWarnings echo => 1;
+
+ok 1, 'Copacetic';
+
+done_testing();
+EOD
+            'Handle Test::Warnings';
+    };
+
+    like $warning,
+        qr/\AReplaced 'use Test::Warnings;' with 'use Test2::Plugin::NoWarnings echo => 1;'/,
+        'Got correct warning from handling Test::Warnings';
+
 }
 
 {
     my $app = CLASS->new( load_module => 1 );
+    my $warning;
 
-    my $warning = warning {
+    $warning = warning {
+        is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
+require_ok 'Text::Wrap';
+
+done_testing;
+EOD
+            slurp( 't/test2_require_ok_load_module.t' ),
+            'Convert require_ok() using Test2::Tools::LoadModule';
+    };
+
+    like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
+        'Correct load_module_ok() warning';
+
+    $warning = warning {
         is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;

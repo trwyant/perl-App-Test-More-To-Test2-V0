@@ -7,7 +7,7 @@ lib/App/Test/More/To/Test2/V0.pm
 LICENSES/Artistic
 LICENSES/Copying
 Makefile.PL
-MANIFEST			This list of files
+MANIFEST
 META.json
 META.yml
 README
@@ -19,6 +19,7 @@ t/test2_isa_ok_2.t
 t/test2_plan_bare.t
 t/test2_plan_list.t
 t/test2_require_ok.t
+t/test2_require_ok_load_module.t
 t/test2_skip_all_bare.t
 t/test2_skip_all_list.t
 t/test2_test_builder_level_builder.t

@@ -38,7 +38,7 @@ ok 1;
 
 done_testing;
 EOD
-        slurp( 't/test2_use.t' ),
+        slurp( 'xt/author/test2_use.t' ),
         'Convert use Test::More';
 
     is $app->convert( \<<'EOD' ),
@@ -50,7 +50,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_plan_list.t' ),
+        slurp( 'xt/author/test2_plan_list.t' ),
        'Convert use Test::More tests => 2';
 
     is $app->convert( \<<'EOD' ),
@@ -62,7 +62,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_plan_list.t' ),
+        slurp( 'xt/author/test2_plan_list.t' ),
         q<Convert use Test::More 'tests', 2>;
 
     is $app->convert( \<<'EOD' ),
@@ -74,7 +74,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_plan_list.t' ),
+        slurp( 'xt/author/test2_plan_list.t' ),
         q<Convert use Test::More ( 'tests', 2 )>;
 
     is $app->convert( \<<'EOD' ),
@@ -88,7 +88,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_plan_list.t' ),
+        slurp( 'xt/author/test2_plan_list.t' ),
         q{Convert plan( tests => 2 )};
 
     is $app->convert( \<<'EOD' ),
@@ -102,7 +102,7 @@ ok 1;
 
 ok 2;
 EOD
-        slurp( 't/test2_plan_bare.t' ),
+        slurp( 'xt/author/test2_plan_bare.t' ),
         q{Convert plan tests => 2};
 
     is $app->convert( \<<'EOD' ),
@@ -112,7 +112,7 @@ use Test::More;
 
 plan skip_all => 'Taking the day off';
 EOD
-        slurp( 't/test2_skip_all_bare.t' ),
+        slurp( 'xt/author/test2_skip_all_bare.t' ),
         q{Convert plan skip_all => 'Taking the day off'};
 
     is $app->convert( \<<'EOD' ),
@@ -122,7 +122,7 @@ use Test::More;
 
 plan( 'skip_all', 'Taking the day off' );
 EOD
-        slurp( 't/test2_skip_all_list.t' ),
+        slurp( 'xt/author/test2_skip_all_list.t' ),
         q{Convert plan( 'skip_all', 'Taking the day off' )};
 
     is $app->convert( \<<'EOD' ),
@@ -144,7 +144,7 @@ like $data{john}, qr/\bMary\b/, 'does John like Mary';
 
 done_testing;
 EOD
-        slurp( 't/test2_is_deeply.t' ),
+        slurp( 'xt/author/test2_is_deeply.t' ),
         'Convert is_deeply() to is()';
 
     $warning = warning {
@@ -153,11 +153,11 @@ use strict;
 use warnings;
 use Test::More;
 
-use_ok 'Text::Wrap';
+use_ok 'Test2::V0';
 
 done_testing;
 EOD
-            slurp( 't/test2_use_ok_ok.t' ),
+            slurp( 'xt/author/test2_use_ok_ok.t' ),
             'Convert use_ok() using use ok ...';
     };
 
@@ -173,10 +173,10 @@ require_ok 'Test2::V0';
 
 done_testing;
 EOD
-        slurp( 't/test2_require_ok.t' ),
+        slurp( 'xt/author/test2_require_ok.t' ),
         'Convert require_ok() using Test2::Tools::LoadModule';
 
-    # TODO figure out how to execute t/test2_bail_out.t without
+    # TODO figure out how to execute xt/author/test2_bail_out.t without
     # terminating the entire test suite.
     is $app->convert( \<<'EOD' ),
 use strict;
@@ -215,7 +215,7 @@ use Test::More;
 
 done_testing;
 EOD
-        slurp( 't/test2_todo.t' ),
+        slurp( 'xt/author/test2_todo.t' ),
        'Convert $TODO';
 
     $warning = warning {
@@ -258,7 +258,7 @@ sub my_ok {
     return ok( @arg );
 }
 EOD
-            slurp( 't/test2_test_builder_level_builder.t' ),
+            slurp( 'xt/author/test2_test_builder_level_builder.t' ),
             'Handle $Test::Builder::Level';
     };
 
@@ -277,7 +277,7 @@ isa_ok( Foo => 'Bar' );
 
 done_testing;
 EOD
-        slurp( 't/test2_isa_ok_2.t' ),
+        slurp( 'xt/author/test2_isa_ok_2.t' ),
         'Handle isa_ok with two arguments';
 
     is $app->convert( \<<'EOD' ),
@@ -291,7 +291,7 @@ isa_ok( Foo => 'Bar', 'Is Foo a Bar' );
 
 done_testing;
 EOD
-        slurp( 't/test2_isa_ok_2.t' ),
+        slurp( 'xt/author/test2_isa_ok_2.t' ),
         'Handle isa_ok with three arguments';
 
     # NOTE this does not compare the output to a working test file
@@ -337,11 +337,11 @@ use strict;
 use warnings;
 use Test::More;
 
-require_ok 'Text::Wrap';
+require_ok 'Test2::V0';
 
 done_testing;
 EOD
-            slurp( 't/test2_require_ok_load_module.t' ),
+            slurp( 'xt/author/test2_require_ok_load_module.t' ),
             'Convert require_ok() using Test2::Tools::LoadModule';
     };
 
@@ -354,11 +354,11 @@ use strict;
 use warnings;
 use Test::More;
 
-use_ok 'Text::Wrap';
+use_ok 'Test2::V0';
 
 done_testing;
 EOD
-            slurp( 't/test2_use_ok_load_module.t' ),
+            slurp( 'xt/author/test2_use_ok_load_module.t' ),
             'Convert use_ok() using Test2::Tools::LoadModule';
     };
 
@@ -370,7 +370,7 @@ EOD
 {
     my $app = CLASS->new( bail_on_fail => 1 );
 
-    # TODO figure out how to execute t/test2_bail_out_bail_on_fail.t
+    # TODO figure out how to execute xt/author/test2_bail_out_bail_on_fail.t
     # without terminating the entire test suite.
     my $warning = warning {
         is $app->convert( \<<'EOD' ),
@@ -419,7 +419,7 @@ sub my_ok {
     return ok( @arg );
 }
 EOD
-            slurp( 't/test2_test_builder_level_context.t' ),
+            slurp( 'xt/author/test2_test_builder_level_context.t' ),
             'Convert $Test::Builder::Level using context()';
     };
 
@@ -440,11 +440,11 @@ EOD
     my $app = CLASS->new();
 
     my $exception = dies {
-        $app->convert( 't/no_such_file.t' );
+        $app->convert( 'xt/author/no_such_file.t' );
     };
 
     local $! = ENOENT;
-    like $exception, qr<\AFailed to open t/no_such_file.t: $!>,
+    like $exception, qr<\AFailed to open xt/author/no_such_file.t: $!>,
         'Correct exception for missing file';
 }
 

@@ -19,9 +19,6 @@ diag 'Modules needed for author testing';
 ok lives { require ok },
     'require ok';
 
-ok lives { require Scope::Guard },
-    'require Scope::Guard';
-
 ok $test_builder,
     'require Test::Builder';
 

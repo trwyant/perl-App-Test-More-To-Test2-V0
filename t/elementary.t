@@ -401,33 +401,6 @@ EOD
 }
 
 {
-    my $app = CLASS->new( use_context => 1 );
-
-    my $warning = warning {
-        is $app->convert( \<<'EOD' ),
-use strict;
-use warnings;
-use Test::More;
-
-my_ok( 1 );
-
-done_testing;
-
-sub my_ok {
-    my @arg = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + 1;
-    return ok( @arg );
-}
-EOD
-            slurp( 'xt/author/test2_test_builder_level_context.t' ),
-            'Convert $Test::Builder::Level using context()';
-    };
-
-    like $warning, qr/\AAdded 'use Scope::Guard' in\b/,
-        'Correct Scope::Guard warning';
-}
-
-{
     my $exception = dies {
         my $app = CLASS->new( the_answer => 42 );
     };

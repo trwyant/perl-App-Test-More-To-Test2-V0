@@ -36,7 +36,6 @@ xt/author/test2_require_ok_load_module.t
 xt/author/test2_skip_all_bare.t
 xt/author/test2_skip_all_list.t
 xt/author/test2_test_builder_level_builder.t
-xt/author/test2_test_builder_level_context.t
 xt/author/test2_todo.t
 xt/author/test2_use.t
 xt/author/test2_use_ok_load_module.t

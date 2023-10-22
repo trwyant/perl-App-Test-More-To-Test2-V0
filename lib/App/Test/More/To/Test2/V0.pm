@@ -30,7 +30,6 @@ sub new {
 	die		=> delete $arg{die},
 	load_module	=> delete $arg{load_module},
 	quiet		=> delete $arg{quiet},
-	use_context	=> delete $arg{use_context},
     }, $class;
     keys %arg
 	and $self->__croak( 'Unsupported arguments: ',
@@ -349,54 +348,14 @@ sub _convert_sub__symbol__TODO {
 }
 
 sub _convert_sub__symbol__test_builder_level {
-    my ( $self, $from ) = @_;
+    # my ( $self ) = @_;	# $self, $from, $to unused
 
-    $self->{use_context}
-	or return(
-	    'Test::Builder::Level',
-	    sub {
-		my ( $self ) = @_;
-		return $self->_add_use( 'Test::Builder', '()' );
-	    },
-	);
-
-    my $scope_guard = 'scope_guard';	# TODO make this an attribute
-
-    # NOTE that we may not find a statement if the symbol is repeated,
-    # e.g.
-    # local $Test::Builder::Level = $Test::Builder::Level + 1;
-    my $old_stmt = $from->{ele}->statement()
-	or return;
-
-    my $new_code;
-    {
-	my $prior = $old_stmt->previous_sibling();
-	if ( $prior = $old_stmt->previous_sibling()
-		and $prior->isa( 'PPI::Token::Whitespace' )
-		and $prior =~ m/ (?: \n | \A ) ( .* ) \z /smx
-	) {
-	    my $indent = $1;
-	    $new_code = <<"EOD";
-my \$$scope_guard = do {
-$indent    my \$ctx = context();
-$indent    Scope::Guard->new( sub { \$ctx->release() } );
-$indent};
-EOD
-	} else {
-	    $new_code = <<"EOD";
-my \$$scope_guard = do { my \$ctx = context(); Scope::Guard->new( sub { \$ctx->release() } ) };
-EOD
-	}
-    }
-    chomp $new_code;
-    my $new_stmt = $self->_parse_string_for(
-	$new_code,
-	'PPI::Statement::Variable',
-    );
-    $old_stmt->replace( $new_stmt );
     return(
 	'Test::Builder::Level',
-	sub { $self->_add_use( 'Scope::Guard' ) },
+	sub {
+	    my ( $self ) = @_;
+	    return $self->_add_use( 'Test::Builder' );
+	},
     );
 }
 
@@ -865,20 +824,6 @@ If this Boolean argument is true some warnings will be suppressed.
 
 The default is false.
 
-=item use_context
-
-If this Boolean argument is true, uses of C<$Test::Builder::Level> will
-be removed. Instead, a C<Test2> context will be acquired, and released
-when the scope ends. This implementation requires
-L<Scope::Guard|Scope::Guard> to be loaded.
-
-If this Boolean argument is false or omitted, uses of
-C<$Test::Builder::Level> will be retained, but
-L<Test::Builder|Test::Builder> will be loaded (without importing
-anything) since that seems to be necessary to get it to work.
-
-The default is false.
-
 =back
 
 =head2 convert
@@ -1009,18 +954,15 @@ C<my $TODO = todo ...>.
 
 =item $Test::Builder::Level
 
-If the L<use_context|/use_context> attribute is true, all statements
-that localize C<$Test::Builder::Level> will be converted to statements
-that acquire a C<Test2> context and release it on scope exit.
-
-If this attribute is false and a reference to C<$Test::Builder::Level>
-is found, C<use Test::Builder ();> is added.
+If a reference to C<$Test::Builder::Level> is found, C<use Test::Builder;> is added.
 
 B<Note> that
 L<Test2::Manual::Tooling::TestBuilder|Test2::Manual::Tooling::TestBuilder>
 claims that C<$Test::Builder::Level> will be honored if set; but I have
 found that just assigning it a value does not suffice, and I need to
 actually load L<Test::Builder|Test::Builder> to get this behavior.
+
+B<Note further> that L<Test2::Manual::Tooling::Nesting|Test2::Manual::Tooling::Nesting> says that the idiomatic way to accomplish this is to acquire a context object by C<my $ctx = context()> and then call C<< $ctx->release() >> when done with it. But automating this means finding B<every> code path where it needs to be done. Using something like L<Scope::Guard|Scope::Guard> is not an option, because exceptions raised in a C<DESTROY()> method do not propagate out of it, which breaks at least L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>.
 
 =back
 

@@ -16,7 +16,7 @@ my %opt;
 GetOptions( \%opt,
     qw{
 	bail_on_fail|bail-on-fail! load_module|load-module!
-	slurp! use_context|use-context!
+	slurp!
     },
     help => sub { pod2usage( { -verbose => 2 } ) },
 ) or pod2usage( { -verbose => 0 } );
@@ -75,9 +75,9 @@ test-more-to-test2-v0 - Convert Test::More tests to Test2::V0
 =head2 --bail-on-fail
 
 If this Boolean option is asserted the script removes calls to
-C<BAIL_ON_FAIL()>, and installs
+C<BAIL_OUT()>, and installs
 L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>. Otherwise it
-just installs its own C<BAIL_ON_FAIL()> subroutine.
+just installs its own C<BAIL_OUT()> subroutine.
 
 The default is C<-no-bail-on-fail>.
 
@@ -103,20 +103,6 @@ line are slurped, and their contents are converted and displayed on
 C<STDOUT>. Otherwise the files are converted in-place.
 
 The default is C<--no-slurp>.
-
-=head2 --use-context
-
-If this Boolean option is asserted, uses of C<$Test::Builder::Level> are
-repoaced by code that allocates a C<Test2> context and frees it on scope
-exit. Unfortunately this introduces a non-core dependency on
-L<Scope::Guard|Scope::Guard>.
-
-If this Boolean option is negated, uses of C<$Test::Builder::Level> are
-retained, but L<Test::Builder|Test::Builder> is loaded (without imports)
-because that seems to be necessary to get C<$Test::Builder::Level> to
-work.
-
-The default is C<--no-use-context>.
 
 =head2 --version
 

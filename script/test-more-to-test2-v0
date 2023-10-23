@@ -6,38 +6,85 @@ use strict;
 use warnings;
 
 use File::Glob qw{ bsd_glob };
+use File::Spec;
 use Getopt::Long 2.33 qw{ :config auto_version };
 use App::Test::More::To::Test2::V0;
 
 our $VERSION = '0.000_001';
 
+{
+    my $is_win = {
+	MSWin32	=> 1,
+    };
+
+    use constant CFG_FILE	=> $is_win->{$^O} ?
+	'test-more-to-test2-v0.cfg' : 'test-more-to-test2-v0rc';
+}
+
 my %opt;
 
-GetOptions( \%opt,
-    qw{
-	bail_on_fail|bail-on-fail! load_module|load-module!
-	slurp!
-    },
-    help => sub { pod2usage( { -verbose => 2 } ) },
-) or pod2usage( { -verbose => 0 } );
+foreach my $cfg_dir (
+    [ 'meta' ],
+    [],
+    [ $ENV{HOME} ],
+) {
+    my $cfg_path = File::Spec->catfile( @{ $cfg_dir }, CFG_FILE );
+    open my $fh, '<:encoding(utf-8)', $cfg_path
+	or next;
+    my @add_arg;
+    while ( <$fh> ) {
+	m/ \A \s* [#] /smx
+	    and next;
+	m/ \S /smx
+	    or next;
+	s/ \A \s+ //smx;
+	s/ \s+ \z //smx;
+	push @add_arg, m/ \A - /smx ? $_ : bsd_glob( $_ );
+    }
+    close $fh;
 
-@ARGV
-    or @ARGV = bsd_glob( 't/*.t' );
+    my_get_options( @add_arg );
+    last;
+}
+
+my_get_options( @ARGV );
+
+my @want_files = @{ delete $opt{_want_files} || [] };
+
+@want_files
+    or @want_files = bsd_glob( 't/*.t' );
 
 delete $opt{slurp}
-    and @ARGV = map { slurp( $_ ) } @ARGV;
+    and @want_files = map { slurp( $_ ) } @want_files;
 
 my $app = App::Test::More::To::Test2::V0->new(
     %opt,
     die		=> 1,
 );
 
-foreach my $file ( @ARGV ) {
+foreach my $file ( @want_files ) {
     if ( ref $file ) {
 	print $app->convert( $file );
     } else {
 	$app->convert( $file );
     }
+}
+
+sub my_get_options {
+    local @ARGV = @_;
+
+    GetOptions( \%opt,
+	qw{
+	    bail_on_fail|bail-on-fail! convert=s@
+	    load_module|load-module! slurp!
+	},
+	help => sub { pod2usage( { -verbose => 2 } ) },
+    ) or pod2usage( { -verbose => 0 } );
+
+    @ARGV
+	and $opt{_want_files} = [ @ARGV ];
+
+    return;
 }
 
 sub pod2usage {
@@ -88,11 +135,24 @@ exits.
 
 =head2 --load-module
 
-If this Boolean option is asserted, C<use_ok( ... )> is left unchanged,
-but C<use Test2::Tools::LoadModule qw{ :more };> is added to provide the
-code for C<use_ok()>. Otherwise C<use_ok( ... )> is converted to
-C<use ok ( ... );>. B<Note> that C<require_ok( ... )> always causes
-L<Test2::Tools::LoadModule|Test2::Tools::LoadModule> to be loaded.
+If this Boolean option is asserted and either C<use_ok()> or
+C<require_ok() is encountered,
+
+  use Test2::Tools::LoadModule qw{ :more };
+
+is added to the top of the module to supply them.
+
+Otherwise C<use_ok ... > is converted to C<use ok ...;>, and
+C<require_ok $module > is converted to
+
+ ok lives { require $module }, "require $module" or diag <<"EOD"
+     Tried to require '$module'
+     Error: \$@
+ EOD
+
+The diagnostic is omitted if the C<require_ok()> is followed by anything
+but C<;>, because the value of
+L<Test2::Tools::Basic::diag()|Test2::Tools::Basic> is undocumented.
 
 The default is C<-no-load-module>.
 
@@ -116,6 +176,20 @@ The file names of scripts to be converted are passed in on the command
 line. If none are specified, F<t/*.t> are converted.
 
 B<Caveat:> Files are modified in-place.
+
+=head1 CONFIGURATION FILE
+
+You can configure options using a configuration file. The name of this
+file is F<test-more-to-test2-v0.cfg> under Windows, and
+F<test-more-to-test2v0rc> under any other operating system. The
+configuration file can be found either in the F<meta/> subdirectory of
+the distribution being converted, in the distribution directory itself,
+or in the user's home directory. The first one found will be used.
+
+The configuration file contains command arguments, one per line. Blank
+lines and lines whose first non-blank character is C<'#'> will be
+ignored. Options and arguments specified on the command line override
+those specified in the configuration file.
 
 =head1 AUTHOR
 

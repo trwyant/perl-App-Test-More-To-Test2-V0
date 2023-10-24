@@ -29,6 +29,7 @@ xt/author/pod_spelling.t
 xt/author/prereq.t
 xt/author/test2_is_deeply.t
 xt/author/test2_isa_ok_2.t
+xt/author/test2_no_plan_bare.t
 xt/author/test2_plan_bare.t
 xt/author/test2_plan_list.t
 xt/author/test2_require_ok.t

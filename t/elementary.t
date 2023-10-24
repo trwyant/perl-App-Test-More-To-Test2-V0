@@ -110,6 +110,20 @@ use strict;
 use warnings;
 use Test::More;
 
+plan 'no_plan';
+
+pass 'Copacetic';
+
+done_testing;
+EOD
+        slurp( 'xt/author/test2_no_plan_bare.t' ),
+        q{Convert plan 'no_plan'};
+
+    is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
 plan skip_all => 'Taking the day off';
 EOD
         slurp( 'xt/author/test2_skip_all_bare.t' ),

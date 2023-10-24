@@ -199,17 +199,22 @@ sub _convert_sub__named__plan {
     if ( $from->{ele}->isa( 'PPI::Token::Word' ) ) {
 	my @from_arg = PPIx::Utils::parse_arg_list( $from->{ele} );
 
-	if ( @from_arg == 2
-		and @{ $from_arg[0] } == 1
-		and my $from_name = _map_plan_arg_to_sub_name( $from_arg[0][0] )
-	) {
+	if ( @{ $from_arg[0] } == 1
+		and my $info = _map_plan_arg_to_sub( $from_arg[0][0] ) ) {
+	    if ( defined( my $to_name = $info->{name} ) ) {
+		$self->_replace_sub_args( $from->{ele}, $info->{has_arg}
+		    ? "@{ $from_arg[1] }" : () );
 
-	    $self->_replace_sub_args( $from->{ele}, "@{ $from_arg[1] }" );
-
-	    # FIXME Encapsulation violation. The new() method is
-	    # undocumented but somewhat widely used outside PPI.
-	    $from_name ne $from->{name}
-		and $from->{ele}->replace( PPI::Token::Word->new( $from_name ) );
+		# FIXME Encapsulation violation. The new() method is
+		# undocumented but somewhat widely used outside PPI.
+		$to_name ne $from->{name}
+		    and $from->{ele}->replace( PPI::Token::Word->new(
+			$to_name ) );
+	    } else {
+		# FIXME this assumes that the "plan( 'no_plan' )" stands
+		# on its own as a statement.
+		$from->{ele}->statement()->delete();
+	    }
 
 	} elsif ( @from_arg == 1 ) {
 	    # Do nothing, because we have already been converted.
@@ -441,13 +446,20 @@ sub _convert_use__module__test_more {
 
 	if ( @arg ) {
 
+	    $DB::single = 1;
+
 	    @arg = map { _ppi_to_string( @{ $_ } ) } @arg;
 
-	    @arg == 2
-		and my $sub_name = _map_plan_arg_to_sub_name( $arg[0] )
-		or $self->__croak( "'use Test::More @arg;' unsupported" );
+	    if ( my $info = _map_plan_arg_to_sub( $arg[0] ) ) {
+		if ( defined( my $to_name = $info->{name} ) ) {
+		    $self->_add_statement(
+			$info->{has_arg} ? "$to_name( $arg[1] );" :
+			"$to_name();" );
+		}
+	    } else {
+		$self->__croak( "'use test::more @arg;' unsupported" );
+	    }
 
-	    $self->_add_statement( "$sub_name( $arg[1] );" );
 	}
     }
 
@@ -608,14 +620,22 @@ sub _is_goto {
     return $prev->isa( 'PPI::Token::Word' ) && $prev eq 'goto';
 }
 
-sub _map_plan_arg_to_sub_name {
+sub _map_plan_arg_to_sub {
     my ( $arg ) = @_;
     my $key = ( ref $arg && $arg->isa( 'PPI::Token::Quote' ) ) ?
 	$arg->string() :
 	"$arg";
     state $sub_map = {
-	tests	=> 'plan',
-	skip_all	=> 'skip_all',
+	no_plan		=> {
+	},
+	skip_all	=> {
+	    has_arg	=> 1,
+	    name	=> 'skip_all',
+	},
+	tests		=> {
+	    has_arg	=> 1,
+	    name	=> 'plan',
+	},
     };
     return $sub_map->{$key};
 }
@@ -914,6 +934,8 @@ arguments.
 This tool converts a two-argument call to C<plan()> into a
 single-argument call to either C<plan()> or C<skip_all()>, depending on
 the value of the first of the two arguments.
+
+It removes the statement C<plan( 'no_plan' );>.
 
 =item require_ok()
 

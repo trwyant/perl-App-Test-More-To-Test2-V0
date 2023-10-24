@@ -255,7 +255,13 @@ sub _convert_sub__named__require_ok {	# TODO not used yet
 
     my $repl_string = " lives { require $module }, 'require $module;'";
     if ( $ele ) {
-	if ( $ele->isa( 'PPI::Token::Structure' ) && $ele eq ';') {
+	if ( $ele->isa( 'PPI::Token::Structure' ) && $ele eq ';' ||
+	    # NOTE this is not quite right, because it assumes that
+	    # diag() returns a false value. It in fact does as of
+	    # Test2::V0 0.000156, but unlike Test::More, this fact is
+	    # not documented.
+	    $ele->isa( 'PPI::Token::Operator' ) && $ele eq 'or'
+	) {
 	    $repl_string .= <<"END_OF_DATA";
  or diag <<"EOD"
     Tried to require '$module'
@@ -944,8 +950,8 @@ all calls to C<require_ok( $module )> are changed to
 
  ok lives { require $module }, "require $module";
 
-If the call to C<require_ok()> was followed by a semicolon (C<;>, rather
-than one of the loose-binding Boolean operators),
+If the call to C<require_ok()> was followed by a semicolon (C<;>) or an
+C<or>,
 
  or diag <<"EOD"
      Tried to require '$module'
@@ -954,6 +960,13 @@ than one of the loose-binding Boolean operators),
 
 is appended. B<Note> that the above is pseudo-code; the actual module
 specification will appear in place of C<$module>.
+
+The acceptance of C<'or'> is not quite correct, because it assumes that
+C<diag()> returns a false value. It does, but this is undocumented. On
+the other hand, the L<Test::More|Test::More> version of C<diag()> B<is>
+documented as returning false, because it preserves the truthiness of
+the return value under the idiom C<test or diag>, which issues the
+diagnostic only when the test fails.
 
 If the L<load_module|/load_module> attribute is true, a
 C<use Test2::Tools::LoadModule ':more';> is added. A warning is

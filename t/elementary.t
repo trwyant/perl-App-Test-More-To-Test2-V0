@@ -188,7 +188,7 @@ require_ok 'Test2::V0';
 done_testing;
 EOD
         slurp( 'xt/author/test2_require_ok.t' ),
-        'Convert require_ok() using Test2::Tools::LoadModule';
+        'Convert require_ok() using ok lives { require ... }';
 
     # TODO figure out how to execute xt/author/test2_bail_out.t without
     # terminating the entire test suite.
@@ -383,10 +383,11 @@ EOD
 
 {
     my $app = CLASS->new( bail_on_fail => 1 );
+    my $warning;
 
     # TODO figure out how to execute xt/author/test2_bail_out_bail_on_fail.t
     # without terminating the entire test suite.
-    my $warning = warning {
+    $warning = warning {
         is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
@@ -412,6 +413,25 @@ EOD
 
     like $warning, qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
         'Correct Test2::Plugin::BailOnFail warning';
+
+    $warning = warning {
+        is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
+require_ok 'Test2::V0'
+    or BAIL_OUT();
+
+done_testing;
+EOD
+        slurp( 'xt/author/test2_require_ok_bail.t' ),
+        'Convert require_ok() or BAIL_OUT using ok lives { require ... }';
+    };
+
+    like $warning, qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+        'Correct Test2::Plugin::BailOnFail warning';
+
 }
 
 {

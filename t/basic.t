@@ -6,12 +6,7 @@ use warnings;
 use Test2::V0;
 use Test2::Plugin::BailOnFail;
 
-ok lives {
-    require App::Test::More::To::Test2::V0;
-}, 'require App::Test::More::To::Test2::V0' or diag <<"EOD";
-    Tried to require 'App::Test::More::To::Test2::V0'
-    Error: $@
-EOD
+use ok 'App::Test::More::To::Test2::V0';
 
 my $obj;
 ok lives {

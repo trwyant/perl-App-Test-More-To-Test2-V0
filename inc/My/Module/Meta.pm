@@ -31,6 +31,7 @@ sub author {
 
 sub build_requires {
     return +{
+	ok		=> 0,
 	'Errno'		=> 0,
 	'Test2::V0'	=> 0,
 	'Test2::Plugin::NoWarnings'	=> 0,

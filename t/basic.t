@@ -5,12 +5,20 @@ use warnings;
 
 use Test2::V0;
 use Test2::Plugin::BailOnFail;
-use Test2::Tools::LoadModule;
 
-load_module_ok 'App::Test::More::To::Test2::V0';
+ok lives {
+    require App::Test::More::To::Test2::V0;
+}, 'require App::Test::More::To::Test2::V0' or diag <<"EOD";
+    Tried to require 'App::Test::More::To::Test2::V0'
+    Error: $@
+EOD
 
-my $ms = eval { App::Test::More::To::Test2::V0->new() };
-isa_ok $ms, 'App::Test::More::To::Test2::V0';
+my $obj;
+ok lives {
+    $obj = App::Test::More::To::Test2::V0->new();
+}, 'Can instantiate App::Test::More::To::Test2::V0';
+
+isa_ok $obj, 'App::Test::More::To::Test2::V0';
 
 done_testing;
 

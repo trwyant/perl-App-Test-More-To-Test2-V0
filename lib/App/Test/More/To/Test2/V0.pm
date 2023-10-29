@@ -433,6 +433,7 @@ sub _convert_use {
 			"$prefix$info->{to}->import( $info->{arg} );" );
 	    }
 	}
+
 	$repl_text .= ';';
 
 	my $repl = $self->_parse_string_for(
@@ -461,8 +462,6 @@ sub _convert_use__module__test_more {
 	my @arg = PPIx::Utils::parse_arg_list( $start );
 
 	if ( @arg ) {
-
-	    $DB::single = 1;
 
 	    @arg = map { _ppi_to_string( @{ $_ } ) } @arg;
 

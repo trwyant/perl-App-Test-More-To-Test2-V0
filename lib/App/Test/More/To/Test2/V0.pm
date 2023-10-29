@@ -1,6 +1,6 @@
 package App::Test::More::To::Test2::V0;
 
-use 5.014;	# For s///r
+use 5.010;
 
 use strict;
 use warnings;

@@ -219,6 +219,7 @@ sub _convert_sub__named__plan {
 	} elsif ( @from_arg == 1 ) {
 	    # Do nothing, because we have already been converted.
 	} else {
+	    # We do not understand the call
 	    $self->__carp( $from->{ele}, ' ', CONVERT_BY_HAND );
 	}
 
@@ -894,7 +895,8 @@ C<BAIL_OUT()> will be removed, and C<use Test2::Plugin::BailOnFail;>
 will be added. A warning will be generated, since this adds a
 dependency. B<Note> that this involves a change in test semantics, since
 B<any> test failure will now cause the entire test suite to be
-abandoned.
+abandoned, not just those that originally called C<BAIL_OUT()> on
+failure.
 
 If the L<bail_on_fail|/bail_on_fail> attribute is false or omitted,
 
@@ -902,20 +904,14 @@ If the L<bail_on_fail|/bail_on_fail> attribute is false or omitted,
 
 will be added.
 
-
 =item builder()
 
 A call to C<< Test::More->builder() >> returns the underlying
-L<Test::Builder|Test::Builder> singleton. I believe the usual reason to
-do this is to modify the encoding on the test output handles.
+L<Test::Builder|Test::Builder> singleton.
 
-L<Test2::V0|Test2::V0> encodes output as utf-8 by default. If further
-modifications are needed you need to retrieve the formatter and modify
-it.
-
-Because of these considerations, all this tool does if it finds
-C<builder()> called as a method is to issue a warning saying that it
-needs to be hand-converted.
+Because there is nothing in C<Test2-Suite> corresponding to this object,
+all this tool does if it finds C<builder()> called as a method is to
+issue a warning saying that it needs to be hand-converted.
 
 =item is_deeply()
 
@@ -931,9 +927,7 @@ more. This means if L<Test::More::isa_ok(...)|Test::More> is mistakenly
 called with a third argument containing (say) the intended test name,
 the mistake may not be found until the conversion is done.
 
-Because the potential problem is a coding error, all this tool does is
-to issue a warning if C<isa_ok()> is called with three or more
-arguments.
+This tool eliminates all arguments after the second.
 
 =item plan()
 
@@ -958,15 +952,9 @@ C<or>,
      Error: \$@
  EOD
 
-is appended. B<Note> that the above is pseudo-code; the actual module
-specification will appear in place of C<$module>.
-
-The acceptance of C<'or'> is not quite correct, because it assumes that
-C<diag()> returns a false value. It does, but this is undocumented. On
-the other hand, the L<Test::More|Test::More> version of C<diag()> B<is>
-documented as returning false, because it preserves the truthiness of
-the return value under the idiom C<test or diag>, which issues the
-diagnostic only when the test fails.
+is appended to the generated code. B<Note> that the above is
+pseudo-code; the actual module specification will appear in place of
+C<$module>.
 
 If the L<load_module|/load_module> attribute is true, a
 C<use Test2::Tools::LoadModule ':more';> is added. A warning is
@@ -997,13 +985,25 @@ claims that C<$Test::Builder::Level> will be honored if set; but I have
 found that just assigning it a value does not suffice, and I need to
 actually load L<Test::Builder|Test::Builder> to get this behavior.
 
-B<Note further> that L<Test2::Manual::Tooling::Nesting|Test2::Manual::Tooling::Nesting> says that the idiomatic way to accomplish this is to acquire a context object by C<my $ctx = context()> and then call C<< $ctx->release() >> when done with it. But automating this means finding B<every> code path where it needs to be done. Using something like L<Scope::Guard|Scope::Guard> is not an option, because exceptions raised in a C<DESTROY()> method do not propagate out of it, which breaks at least L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>.
+B<Note further> that
+L<Test2::Manual::Tooling::Nesting|Test2::Manual::Tooling::Nesting> says
+that the idiomatic way to accomplish this is to acquire a context object
+by C<my $ctx = context()> and then call C<< $ctx->release() >> when done
+with it. But automating this means finding B<every> code path where it
+needs to be done. Using something like L<Scope::Guard|Scope::Guard> is
+not an option, because exceptions raised in a C<DESTROY()> method do not
+propagate out of it, which breaks at least
+L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>.
 
 =back
 
 =head1 SEE ALSO
 
 L<PPI|PPI>.
+
+L<Test::More|Test::More>
+
+L<Test2::V0|Test2::V0>
 
 =head1 SUPPORT
 

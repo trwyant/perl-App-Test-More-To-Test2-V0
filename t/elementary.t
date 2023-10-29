@@ -247,13 +247,13 @@ use warnings;
 
 use Test2::V0;
 
-my $bldr = Test::More->builder();
+diag 'Must be converted by hand in ', __FILE__, ' line ', __LINE__; my $bldr = Test::More->builder();
 EOD
         'Warn on Test::More->builder()';
     };
 
     like $warning,
-        qr{\bTest::More->builder\(\);@{[ CLASS->CONVERT_BY_HAND ]}},
+        qr{\bTest::More->builder\(\); @{[ CLASS->CONVERT_BY_HAND ]}},
         'Correct Test::More->builder() warning';
 
     $warning = warning {

@@ -10,7 +10,7 @@ use PPIx::Utils;
 
 our $VERSION = '0.000_001';
 
-use constant CONVERT_BY_HAND	=> ' must be converted by hand';
+use constant CONVERT_BY_HAND	=> 'must be converted by hand';
 
 # From Perl::Critic::Utils
 use constant MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST =>
@@ -62,6 +62,16 @@ sub convert {
     }
 
     return $content;
+}
+
+sub _convert_by_hand {
+    my ( $self, $ele ) = @_;
+    my $stmt = $ele->statement();
+    $self->__carp( $stmt, ' ', CONVERT_BY_HAND );
+    $stmt->insert_before( $_ )
+	for $self->_parse_string_kids(
+	qq<diag '\u@{[ CONVERT_BY_HAND ]} in ', __FILE__, ' line ', __LINE__; > );
+    return;
 }
 
 sub _convert_sub {
@@ -172,8 +182,7 @@ sub _convert_sub__named__builder {
     my ( $self, $from ) = @_;	# $to unused
     PPIx::Utils::is_method_call( $from->{ele} )
 	or return;
-    $self->__carp( $from->{ele}->statement(), CONVERT_BY_HAND );
-    return;
+    return $self->_convert_by_hand( $from->{ele} );
 }
 
 sub _convert_sub__named__isa_ok {
@@ -220,11 +229,11 @@ sub _convert_sub__named__plan {
 	    # Do nothing, because we have already been converted.
 	} else {
 	    # We do not understand the call
-	    $self->__carp( $from->{ele}, ' ', CONVERT_BY_HAND );
+	    $self->_convert_by_hand( $from->{ele} );
 	}
 
     } else {
-	$self->__carp( $from->{ele}, ' ', CONVERT_BY_HAND );
+	$self->_convert_by_hand( $from->{ele} );
     }
     return;
 }
@@ -911,7 +920,8 @@ L<Test::Builder|Test::Builder> singleton.
 
 Because there is nothing in C<Test2-Suite> corresponding to this object,
 all this tool does if it finds C<builder()> called as a method is to
-issue a warning saying that it needs to be hand-converted.
+issue a warning saying that it needs to be hand-converted, and insert a
+diagnostic into the code.
 
 =item is_deeply()
 

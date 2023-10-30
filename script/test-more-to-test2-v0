@@ -76,7 +76,10 @@ sub my_get_options {
     GetOptions( \%opt,
 	qw{
 	    bail_on_fail|bail-on-fail! convert=s@
+	    lib=s@
 	    load_module|load-module! slurp!
+	    support_module|support-module=s@
+	    support_sub|support-sub=s@
 	},
 	help => sub { pod2usage( { -verbose => 2 } ) },
     ) or pod2usage( { -verbose => 0 } );
@@ -133,6 +136,13 @@ The default is C<-no-bail-on-fail>.
 This option displays the documentation for this script. The script then
 exits.
 
+=head2 --lib
+
+ --lib inc
+
+This option specifies a directory to be search for support modules in
+addition to those in C<@INC>. It can be specified more than once.
+
 =head2 --load-module
 
 If this Boolean option is asserted and either C<use_ok()> or
@@ -164,6 +174,28 @@ C<STDOUT>. Otherwise the files are converted in-place.
 
 The default is C<--no-slurp>.
 
+=head2 --support-module
+
+ --support-module My::Module::Test
+
+This option specifies a testing support module whose default exports are
+to be examined for conflicts with the default exports of
+L<Test2::V0|Test2::V0>.
+
+This option can be specified more than once.
+
+=head2 --support-sub
+
+ --support-sub check
+
+This option specifies the name of a testing support subroutine which may
+(or may not) conflict with the default exports of
+L<Test2::V0|Test2::V0>. This is in addition to subroutines found in the
+script being converted and those exported by the modules specified by
+L<--support-module|/--support-module>.
+
+This option can be specified more than once.
+
 =head2 --version
 
 This option displays the version of this script. The script then exits.
@@ -174,6 +206,11 @@ This Perl script converts Perl test scripts based on
 L<Test::More|Test::More> into scripts based on L<Test2::V0|Test2::V0>.
 The file names of scripts to be converted are passed in on the command
 line. If none are specified, F<t/*.t> are converted.
+
+For the details of the conversion, see
+L<App::Test::More::To::Test2::V0|App::Test::More::To::Test2::V0>,
+particularly the documentation of the
+L<convert()|App::Test::More::To::Test2::V0/convert> method.
 
 B<Caveat:> Files are modified in-place.
 

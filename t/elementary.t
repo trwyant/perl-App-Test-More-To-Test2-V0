@@ -56,6 +56,20 @@ EOD
     is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
+use Test::More tests => 2;
+
+ok 1;
+
+ok 2;
+
+sub check {}
+EOD
+        slurp( 'xt/author/test2_plan_list_with_collision.t' ),
+       'Convert use Test::More tests => 2, with collision';
+
+    is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
 use Test::More 'tests', 2;
 
 ok 1;
@@ -338,7 +352,6 @@ EOD
     like $warning,
         qr/\AReplaced 'use Test::Warnings;' with 'use Test2::Plugin::NoWarnings echo => 1;'/,
         'Got correct warning from handling Test::Warnings';
-
 }
 
 {

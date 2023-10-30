@@ -11,6 +11,7 @@ use PPIx::Utils;
 our $VERSION = '0.000_001';
 
 use constant CONVERT_BY_HAND	=> 'must be converted by hand';
+use constant REF_ARRAY		=> ref [];
 
 # From Perl::Critic::Utils
 use constant MIN_PRECEDENCE_TO_TERMINATE_PARENLESS_ARG_LIST =>
@@ -28,12 +29,19 @@ sub new {
     my $self = bless {
 	bail_on_fail	=> delete $arg{bail_on_fail},
 	die		=> delete $arg{die},
+	lib		=> delete $arg{lib} || [],
 	load_module	=> delete $arg{load_module},
 	quiet		=> delete $arg{quiet},
+	support_module	=> delete $arg{support_module} || [],
+	support_sub	=> delete $arg{support_sub} || [],
     }, $class;
     keys %arg
 	and $self->__croak( 'Unsupported arguments: ',
 	join ', ', sort keys %arg );
+    foreach my $key ( qw{ lib support_module support_sub } ) {
+	ref( $self->{$key} ) eq REF_ARRAY
+	    or $self->__croak( "Argument $key must be an ARRAY reference" );
+    }
     return $self;
 }
 
@@ -399,10 +407,11 @@ sub _convert_use {
 		to	=> 'Test2::V0',
 		quiet	=> 1,
 		handler	=> \&_convert_use__module__test_more,
+		arg	=> \&_convert_use__module__test2_v0,
 	    },
 	    'Test::Warnings'	=> {
 		to	=> 'Test2::Plugin::NoWarnings',
-		arg	=> 'echo => 1',
+		arg	=> sub { 'echo => 1' },
 	    },
 	};
 
@@ -415,9 +424,11 @@ sub _convert_use {
 	state $arg_allowed = { map { $_ => 1 } qw{ use no } };
 
 	my $repl_text = "$type $info->{to}";
-	if ( defined $info->{arg} ) {
+	if ( $info->{arg} ) {
 	    if ( $arg_allowed->{$type} ) {
-		$repl_text .= " $info->{arg}";
+		my $arg;
+		defined( $arg = $info->{arg}->( $self ) )
+		    and $repl_text .= " $arg";
 	    } else {
 		my $prefix;
 		my $prev_sib;
@@ -453,6 +464,37 @@ sub _convert_use {
     }
 
     return $rslt;
+}
+
+sub _convert_use__module__test2_v0 {
+    my ( $self ) = @_;
+    $self->{_test_sub} ||= do {
+	my %test = map { $_ => 1 } $self->_get_module_exports( 'Test2::V0' );
+	\%test;
+    };
+    $self->{_support_sub} ||= do {
+	my %support;
+	foreach my $module ( @{ $self->{support_module} } ) {
+	    $support{$_} = 1 for $self->_get_module_exports( $module );
+	}
+	$support{$_} = 1 for @{ $self->{support_sub} };
+	foreach ( keys %support ) {
+	    $self->{_test_sub}{$_}
+		or delete $support{$_};
+	}
+	\%support;
+    };
+    my %support = %{ $self->{_support_sub} };
+    foreach ( @{ $self->{_cvt}{doc}->find( 'PPI::Statement::Sub' ) || [] } ) {
+	my $name = $_->name()
+	    or next;
+	$self->{_test_sub}{$name}
+	    or next;
+	$support{$name} = 1;
+    }
+    my @rslt = map { "!$_" } sort keys %support
+	or return;
+    return "qw{ @rslt }";
 }
 
 sub _convert_use__module__test_more {
@@ -626,6 +668,23 @@ sub _find_use_arg_start_point {
 	and return $module;	# It's 'use Foo arg ...'
 
     return $version;		# It's 'use Foo version ...'
+}
+
+sub _get_module_exports {
+    my ( $self, $module ) = @_;
+    my @lib = map { "-I$_" } @{ $self->{lib} };
+    open my $fh, '-|', $^X, @lib, "-M$module", '-E', "say for \@${module}::EXPORT;"	## no critic (RequireBriefOpen)
+	or do {
+	$self->__carp( "Failed to access \@${module}::EXPORT" );
+	return;
+    };
+    my @rslt;
+    while ( <$fh> ) {
+	chomp;
+	push @rslt, $_;
+    }
+    close $fh;
+    return @rslt;
 }
 
 sub _is_goto {
@@ -845,6 +904,12 @@ B<Note> that this argument is ignored if C<$Carp::Verbose> is true.
 
 The default is false.
 
+=item lib
+
+This argument is either C<undef> or a reference to an array of
+directories to be searched for support modules in addition to those in
+C<@INC>.
+
 =item load_module
 
 If this Boolean argument is true, C<use_ok( ... )> will be implemented
@@ -858,6 +923,17 @@ The default is false.
 If this Boolean argument is true some warnings will be suppressed.
 
 The default is false.
+
+=item support_module
+
+This argument is either C<undef> or a reference to an array of the names
+of support modules. The default exports of these modules are recorded.
+
+=item support_sub
+
+This argument is either C<undef> or a reference to an array of the names
+of support subroutines. These are in addition to any exported by support
+modules or found in the test file being converted.
 
 =back
 
@@ -895,6 +971,14 @@ argument; if one is found, a call to C<plan();> is added.
 All occurrences of C<use Test::More ...;> are examined for a
 C<'skip_all'> argument; if one is found, a call to C<skip_all();> is
 added.
+
+If any support subroutines are found whose names conflict with the names
+of the default L<Test2::V0|Test2::V0> exports, their names are added to
+the C<use Test2::V0> argument list, with C<'!'> prepended. Support
+subroutines are any found in the file being converted, plus any default
+exports from modules specified by the L<support_module|/support_module>
+argument, plus any specified by the L<support_sub|/support_sub>
+argumment.
 
 =item BAIL_OUT()
 

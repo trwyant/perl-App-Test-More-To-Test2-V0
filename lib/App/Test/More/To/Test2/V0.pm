@@ -32,6 +32,7 @@ sub new {
 	lib		=> delete $arg{lib} || [],
 	load_module	=> delete $arg{load_module},
 	quiet		=> delete $arg{quiet},
+	suffix		=> delete $arg{suffix},
 	support_module	=> delete $arg{support_module} || [],
 	support_sub	=> delete $arg{support_sub} || [],
     }, $class;
@@ -63,6 +64,11 @@ sub convert {
     my $content = $doc->serialize();
 
     if ( $rewrite && ! ref $file ) {
+	if ( defined( $self->{suffix} ) && $self->{suffix} ne '' ) {
+	    my $backup = $file . $self->{suffix};
+	    rename $file, $backup
+		or $self->__croak( "Failed to rename $file to $backup: $!" );
+	}
 	open my $fh, '>', $file
 	    or $self->__croak( "Failed to open $file for output: $!" );
 	print { $fh } $content;
@@ -935,6 +941,15 @@ This argument is either C<undef> or a reference to an array of the names
 of support subroutines. These are in addition to any exported by support
 modules or found in the test file being converted.
 
+=item suffix
+
+If this argument is defined and not C<''>, changed files will be backed
+up (by renaming) before being rewritten. The name of the backup will be
+the name of the original file with the suffix appended.
+
+B<Note> that a leading dot is B<not> implied; if you want F<t/foo.t>
+backed up to F<t/foo.t.bak>, you must specify C<--suffix .bak>.
+
 =back
 
 =head2 convert
@@ -945,9 +960,9 @@ This method takes as its argument the name of a test file and converts
 that file from L<Test::More|Test::More> to L<Test2::V0|Test2::V0>. The
 content of the converted file is returned.
 
-B<Caveat:> This method modifies files in-place. It is your
-responsibility to ensure that you have adequate back-up in case
-'modifies' turns out to mean 'clobbers.'
+B<Caveat:> This method modifies files in-place unless L<suffix|/suffix>
+is specified. It is your responsibility to ensure that you have adequate
+back-up in case 'modifies' turns out to mean 'clobbers.'
 
 If no modifications are made, a warning is issued and the file is not
 re-written. The warning can be suppressed by specifying a true value for
@@ -977,8 +992,8 @@ of the default L<Test2::V0|Test2::V0> exports, their names are added to
 the C<use Test2::V0> argument list, with C<'!'> prepended. Support
 subroutines are any found in the file being converted, plus any default
 exports from modules specified by the L<support_module|/support_module>
-argument, plus any specified by the L<support_sub|/support_sub>
-argumment.
+argument, plus any names specified by the L<support_sub|/support_sub>
+argument.
 
 =item BAIL_OUT()
 

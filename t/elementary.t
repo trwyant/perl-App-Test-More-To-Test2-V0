@@ -6,6 +6,7 @@ use strict;
 use warnings;
 
 use Errno qw{ ENOENT };
+use File::Temp;
 
 use Test2::V0 -target => 'App::Test::More::To::Test2::V0';
 use Test2::Plugin::NoWarnings echo => 1;
@@ -481,6 +482,62 @@ EOD
     like $exception,
         qr<\ABug - Parsing 'use Test2::V0;' did not produce a PPI::Statement::Variable\b>,
     'Correct exception for bug';
+
+    my $dir = File::Temp->newdir();
+
+    spew( "$dir/foo.t", <<'EOD' );
+use strict;
+use warnings;
+use Test::More;
+
+pass 'Copacetic';
+
+done_testing;
+EOD
+
+    $app->convert( "$dir/foo.t" );
+
+    is slurp( "$dir/foo.t" ), <<'EOD', 'Rewrote correct conversion';
+use strict;
+use warnings;
+use Test2::V0;
+
+pass 'Copacetic';
+
+done_testing;
+EOD
+}
+
+{
+    my $app = CLASS->new( suffix => '.bak' );
+
+    my $dir = File::Temp->newdir();
+
+    my $data = <<'EOD';
+use strict;
+use warnings;
+use Test::More;
+
+pass 'Copacetic';
+
+done_testing;
+EOD
+
+    spew( "$dir/foo.t", $data );
+
+    $app->convert( "$dir/foo.t" );
+
+    is slurp( "$dir/foo.t.bak" ), $data, 'Is the backup file correct';
+
+    is slurp( "$dir/foo.t" ), <<'EOD', 'Is the rewritten file correct';
+use strict;
+use warnings;
+use Test2::V0;
+
+pass 'Copacetic';
+
+done_testing;
+EOD
 }
 
 done_testing;
@@ -491,6 +548,15 @@ sub slurp {
         or return "Unable to open $name: $!\n";
     local $/ = undef;   # slurp mode
     return <$fh>;
+}
+
+sub spew {
+    my ( $name, $data ) = @_;
+    open my $fh, '>:encoding(utf-8)', $name
+        or return diag "Unable to open $name for output: $!";   # False
+    print { $fh } $data;
+    close $fh;
+    return 1;
 }
 
 1;

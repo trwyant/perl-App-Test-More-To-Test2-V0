@@ -6,6 +6,8 @@ use strict;
 use warnings;
 
 use PPI::Document;
+use PPI::Token::Whitespace;
+use PPI::Token::Word;
 use PPIx::Utils;
 
 our $VERSION = '0.000_001';
@@ -277,15 +279,14 @@ sub _convert_sub__named__require_ok {	# TODO not used yet
 	$ele = $self->_delete_elements( $ele, 1 );
     }
 
+    my $pad;
     my $repl_string = " lives { require $module }, 'require $module;'";
     if ( $ele ) {
 	if ( $ele->isa( 'PPI::Token::Structure' ) && $ele eq ';' ||
-	    # NOTE this is not quite right, because it assumes that
-	    # diag() returns a false value. It in fact does as of
-	    # Test2::V0 0.000156, but unlike Test::More, this fact is
-	    # not documented.
 	    $ele->isa( 'PPI::Token::Operator' ) && $ele eq 'or'
 	) {
+	    $ele =~ m/ \A \w /smx
+		and $pad = 1;
 	    $repl_string .= <<"END_OF_DATA";
  or diag <<"EOD"
     Tried to require '$module'
@@ -304,6 +305,11 @@ END_OF_DATA
 	and pop @repl;
 
     $from->{ele}->insert_after( $_ ) for reverse @repl;
+
+    # FIXME Encapsulation violation. The new() method is undocumented
+    # but somewhat widely used outside PPI.
+    $pad
+	and $ele->insert_before( PPI::Token::Whitespace->new( ' ' ) );
 
     # FIXME Encapsulation violation. The new() method is undocumented
     # but somewhat widely used outside PPI.

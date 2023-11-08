@@ -205,6 +205,19 @@ EOD
         slurp( 'xt/author/test2_require_ok.t' ),
         'Convert require_ok() using ok lives { require ... }';
 
+    is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
+require_ok 'Test2::V0'
+    or BAIL_OUT 'Can not continue';
+
+done_testing;
+EOD
+        slurp( 'xt/author/test2_require_ok_or.t' ),
+        'Convert require_ok() or ... using ok lives { ... } or';
+
     # TODO figure out how to execute xt/author/test2_bail_out.t without
     # terminating the entire test suite.
     is $app->convert( \<<'EOD' ),

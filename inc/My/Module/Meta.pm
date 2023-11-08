@@ -155,6 +155,8 @@ sub requires {
 	warnings	=> 0,
 	'Carp'		=> 0,
 	'PPI::Document'	=> 0,
+	'PPI::Token::Whitespace'	=> 0,
+	'PPI::Token::Word'		=> 0,
 	'PPIx::Utils'	=> 0,
 	@extra,
     };

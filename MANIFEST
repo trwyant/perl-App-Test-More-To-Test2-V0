@@ -44,3 +44,4 @@ xt/author/test2_todo.t
 xt/author/test2_use.t
 xt/author/test2_use_ok_load_module.t
 xt/author/test2_use_ok_ok.t
+xt/author/test2_use_ok_or.t

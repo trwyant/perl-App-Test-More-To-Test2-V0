@@ -9,6 +9,7 @@ use PPI::Document;
 use PPI::Token::Whitespace;
 use PPI::Token::Word;
 use PPIx::Utils;
+use Scalar::Util ();
 
 our $VERSION = '0.000_001';
 
@@ -51,9 +52,10 @@ sub new {
 sub convert {
     my ( $self, $file ) = @_;
 
-    local $self->{_cvt} = {};
-
-    $self->{_cvt}{file} = $file;
+    local $self->{_cvt} = {
+	file		=> $file,
+	ignore		=> {},
+    };
 
     my $doc = $self->{_cvt}{doc} = PPI::Document->new ( $file )
 	or $self->__croak( "Failed to open $file: $!" );
@@ -138,6 +140,9 @@ sub _convert_sub {
 	    }
 	    @{ $self->{_cvt}{doc}->find( 'PPI::Token::Symbol' ) || [] } ),
     ) {
+
+	delete $self->{_cvt}{ignore}{ Scalar::Util::refaddr( $from->{ele} ) }
+	    and next;
 
 	my $code = $sub_map_to->{ $from->{name} }
 	    or next;
@@ -254,10 +259,9 @@ sub _convert_sub__named__plan {
     return;
 }
 
-sub _convert_sub__named__require_ok {	# TODO not used yet
+sub _convert_sub__named__require_ok {
     my ( $self, $from ) = @_;	# $to unused
 
-    # TODO parallel construction. Make use_ok like this
     $self->{load_module}
 	and return(
 	    load_module	=> \&_convert_sub__fixup__load_module_ok,
@@ -326,12 +330,54 @@ sub _convert_sub__named__use_ok {
 	    load_module	=> \&_convert_sub__fixup__load_module_ok,
 	);
 
+    # NOTE: Most of the mess below is because someone may have written
+    # 'use_ok ... or ...;'. The simplistic conversion of this to
+    # 'use ok ... or ...;' is a syntax error, so the ' or ...' has to be
+    # removed. I chose to add the diagnostic in case something else had
+    # to be done. In the case of ' ... or BAIL_OUT', the 'BAIL_OUT' is
+    # already queued by PPI, and deleting it does not change this. So we
+    # need machinery to cause it to be ignored when it is encountered.
+    my @to_text;
+    my @dele;
+    {
+	my $ele = $from->{ele}->statement()->child( 0 );
+	while ( $ele != $from->{ele} ) {
+	    push @to_text, $ele->content();
+	}
+	push @to_text, 'use ok';
+	while ( $ele = $ele->next_sibling() and _ele_is_valid_arg( $ele ) ) {
+	    push @to_text, $ele->content();
+	}
+	while ( $ele ) {
+	    $ele->isa( 'PPI::Token::Structure' )
+		and $ele->content() eq ';'
+		and last;
+	    push @dele, $ele->content();
+	    $ele->isa( 'PPI::Token::Word' )
+		and $ele->content() eq 'BAIL_OUT'
+		and $self->{_cvt}{ignore}{ Scalar::Util::refaddr( $ele ) } = 1;
+	    $ele = $ele->next_sibling();
+	}
+	if ( @dele ) {
+	    unshift @dele, pop @to_text while $to_text[-1] !~ m/ \S /smx;
+	}
+	push @to_text, ';';
+    }
+
     my $from_stmt = $from->{ele}->statement();
-    ( my $to_text = $from_stmt->content() ) =~ s/ \b use_ok \b /use ok/smx;
+    if ( @dele ) {
+	my $dele_text = join '', @dele;
+	$dele_text =~ s/(?=[\\'])/\\/smxg;
+	my $diag_text = " diag 'Deleted \\\'$dele_text\\\' in ', __FILE__, ' line ', __LINE__;";
+	$from_stmt->insert_after( $_ )
+	    for reverse $self->_parse_string_kids( $diag_text );
+	$self->__carp( "Deleted '$dele_text' after 'use ok ...'" );
+    }
 
     my $to_stmt = $self->_parse_string_for(
-	$to_text, 'PPI::Statement::Include',
-    );
+	join( '', @to_text ), 'PPI::Statement::Include' );
+
+    # NOTE: This is the end of the mess described in the previous note.
 
     $from_stmt->replace( $to_stmt );
     return(
@@ -1079,6 +1125,11 @@ generated, since this adds a dependency.
 If the L<load_module|/load_module> attribute is false or unspecified,
 all calls to C<use_ok( ... )> are changed to C<use ok ...>. A warning is
 generated, since this adds a dependency on C<ok>.
+
+A separate warning is issued if the replaced call was of the form
+C<use_ok ... or ...>, since C<use ok ... or ...;> is a syntax error. The
+C<' or ...'> will be removed, and replaced with a call to C<diag()> in a
+separate statement.
 
 If the L<load_module|/load_module> attribute is true, a
 C<use Test2::Tools::LoadModule ':more';> is added. A warning is

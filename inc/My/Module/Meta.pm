@@ -158,6 +158,7 @@ sub requires {
 	'PPI::Token::Whitespace'	=> 0,
 	'PPI::Token::Word'		=> 0,
 	'PPIx::Utils'	=> 0,
+	'Scalar::Util'	=> 0,
 	@extra,
     };
 }
@@ -173,7 +174,7 @@ sub script_files {
 }
 
 sub version_from {
-    return 'lib/App/Test/To/Test2.pm';
+    return 'lib/App/Test/More/To/Test2/V0.pm';
 }
 
 1;

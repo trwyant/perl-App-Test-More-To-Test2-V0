@@ -193,6 +193,26 @@ EOD
     like $warning, qr/\AAdded 'use ok' in\b/,
         q<Correct 'use ok' warning>;
 
+    $warning = warnings {
+        is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More;
+
+use_ok 'Test2::V0' or BAIL_OUT;
+
+done_testing;
+EOD
+            slurp( 'xt/author/test2_use_ok_or.t' ),
+            'Convert use_ok() using use ok ...';
+    };
+
+    like $warning->[0], qr/\ADeleted ' or BAIL_OUT' after 'use ok \.\.\.'/,
+        q<Correct "Deleted ' or ...'" warning>;
+
+    like $warning->[1], qr/\AAdded 'use ok' in\b/,
+        q<Correct 'use ok' warning>;
+
     is $app->convert( \<<'EOD' ),
 use strict;
 use warnings;
@@ -384,23 +404,6 @@ done_testing;
 EOD
             slurp( 'xt/author/test2_require_ok_load_module.t' ),
             'Convert require_ok() using Test2::Tools::LoadModule';
-    };
-
-    like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
-        'Correct load_module_ok() warning';
-
-    $warning = warning {
-        is $app->convert( \<<'EOD' ),
-use strict;
-use warnings;
-use Test::More;
-
-use_ok 'Test2::V0';
-
-done_testing;
-EOD
-            slurp( 'xt/author/test2_use_ok_load_module.t' ),
-            'Convert use_ok() using Test2::Tools::LoadModule';
     };
 
     like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,

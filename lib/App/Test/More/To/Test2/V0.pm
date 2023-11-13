@@ -235,11 +235,9 @@ sub _convert_sub__named__plan {
 		$self->_replace_sub_args( $from->{ele}, $info->{has_arg}
 		    ? "@{ $from_arg[1] }" : () );
 
-		# FIXME Encapsulation violation. The new() method is
-		# undocumented but somewhat widely used outside PPI.
 		$to_name ne $from->{name}
-		    and $from->{ele}->replace( PPI::Token::Word->new(
-			$to_name ) );
+		    and $from->{ele}->replace(
+			$self->_make_token( 'PPI::Token::Word', $to_name ) );
 	    } else {
 		# FIXME this assumes that the "plan( 'no_plan' )" stands
 		# on its own as a statement.
@@ -310,14 +308,11 @@ END_OF_DATA
 
     $from->{ele}->insert_after( $_ ) for reverse @repl;
 
-    # FIXME Encapsulation violation. The new() method is undocumented
-    # but somewhat widely used outside PPI.
     $pad
-	and $ele->insert_before( PPI::Token::Whitespace->new( ' ' ) );
+	and $ele->insert_before(
+	$self->_make_token( 'PPI::Token::Whitespace', ' ' ) );
 
-    # FIXME Encapsulation violation. The new() method is undocumented
-    # but somewhat widely used outside PPI.
-    $from->{ele}->replace( PPI::Token::Word->new( 'ok' ) );
+    $from->{ele}->replace( $self->_make_token( 'PPI::Token::Word', 'ok' ) );
 
     return;
 }
@@ -390,12 +385,10 @@ sub _convert_sub__named__use_ok {
 }
 
 sub _convert_sub__rename {
-    my ( undef, $from, $to ) = @_;	# Invocant unused
+    my ( $self, $from, $to ) = @_;
 
-    # FIXME Encapsulation violation. The new() method is undocumented
-    # but somewhat widely used outside PPI.
     $from->{ele}->replace(
-	$from->{class}->new( "$from->{sigil}$to->{name}" )
+	$self->_make_token( $from->{class}, "$from->{sigil}$to->{name}" )
     );
 
     return;
@@ -424,9 +417,7 @@ sub _convert_sub__symbol__TODO {
 	or return;
     my $todo = $rhs->isa( 'PPI::Token::Whitespace' ) ? ' todo' : ' todo ';
 
-    # FIXME Encapsulation violation. The new() method is undocumented
-    # but somewhat widely used outside PPI.
-    $local->replace( PPI::Token::Word->new( 'my' ) );
+    $local->replace( $self->_make_token( 'PPI::Token::Word', 'my' ) );
 
     $assign->insert_after( $_ ) for reverse $self->_parse_string_parts(
 	$todo );
@@ -750,6 +741,23 @@ sub _is_goto {
     my $prev = $ele->sprevious_sibling()
 	or return;
     return $prev->isa( 'PPI::Token::Word' ) && $prev eq 'goto';
+}
+
+
+# FIXME Encapsulation violation. The new() method is undocumented but
+# somewhat widely used outside PPI.
+# This method concentrates all the encapsulation violations involved in
+# making tokens into one place.
+# NOTE that it is up to the caller to ensure that $content is valid for
+# $class.
+sub _make_token {
+    my ( $self, $class, $content ) = @_;
+    state $valid_class = {
+	map { $_ => 1 } qw{ PPI::Token::Word PPI::Token::Whitespace }
+    };
+    $valid_class->{$class}
+	or $self->__confess( "_make_token( '$class', ... ) not supported" );
+    return $class->new( $content );
 }
 
 sub _map_plan_arg_to_sub {

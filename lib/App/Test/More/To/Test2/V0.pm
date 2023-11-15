@@ -32,6 +32,8 @@ sub new {
     my $self = bless {
 	bail_on_fail	=> delete $arg{bail_on_fail},
 	die		=> delete $arg{die},
+	explain		=> delete $arg{explain} //
+	    'Test2::Tools::Explain=explain',
 	lib		=> delete $arg{lib} || [],
 	load_module	=> delete $arg{load_module},
 	quiet		=> delete $arg{quiet},
@@ -46,6 +48,13 @@ sub new {
 	ref( $self->{$key} ) eq REF_ARRAY
 	    or $self->__croak( "Argument $key must be an ARRAY reference" );
     }
+    $self->{explain} =~ m/ \A ( [[:alpha:]_] \w* (?: :: \w* )* ) = (
+	[[:alpha:]_] \w* ) \z /smx
+	or $self->__croak( "Invalid explain '$self->{explain}'" );
+    $self->{_explain} = {
+	name	=> $2,
+	pkg	=> $1,
+    };
     return $self;
 }
 
@@ -100,6 +109,7 @@ sub _convert_sub {
     state $sub_map_to	= {
 	BAIL_OUT	=> \&_convert_sub__named__BAIL_OUT,
 	builder		=> \&_convert_sub__named__builder,
+	explain		=> \&_convert_sub__named__explain,
 	is_deeply	=> sub {
 	    $_[0]->_convert_sub__rename( $_[1], { name => 'is' } );
 	    return;
@@ -152,6 +162,7 @@ sub _convert_sub {
 	my ( $key, $fixup );
 	( $key, $fixup ) = $code->( $self, $from )
 	    and ( $generated{$key} ||= $fixup );
+
     }
 
     $_->( $self ) for values %generated;
@@ -204,6 +215,16 @@ sub _convert_sub__named__builder {
     PPIx::Utils::is_method_call( $from->{ele} )
 	or return;
     return $self->_convert_by_hand( $from->{ele} );
+}
+
+sub _convert_sub__named__explain {
+    my ( $self, $from ) = @_;	# $to unused
+    $from->{name} eq $self->{_explain}{name}
+	or $from->{ele}->replace(
+	$self->_make_token( ref( $from->{ele} ), $self->{_explain}{name} ) );
+    return( explain => sub {
+	    return $self->_add_use( $self->{_explain}{pkg} );
+	} );
 }
 
 sub _convert_sub__named__isa_ok {
@@ -969,6 +990,15 @@ L<Carp::carp()|Carp> or L<Carp::croak()|Carp>.
 B<Note> that this argument is ignored if C<$Carp::Verbose> is true.
 
 The default is false.
+
+=item explain
+
+This argument specifies how to convert
+L<Test::More::explain()|Test::More>. The value is the package to load
+and the subroutine to call, separated by an equals sign. The package is
+assumed to export the subroutine by default.
+
+The default is C<Test2::Tools::Explain=explain>.
 
 =item lib
 

@@ -11,6 +11,20 @@ use File::Temp;
 use Test2::V0 -target => 'App::Test::More::To::Test2::V0';
 use Test2::Plugin::NoWarnings echo => 1;
 
+use constant EXPLAIN_TEST       => \<<'EOD';
+use strict;
+use warnings;
+use Test::More;
+
+my $answer = [ 42 ];
+
+is_deeply $answer, [ 42 ], 'The answer is [ 42 ]';
+
+note 'The answer is ', explain( $answer );
+
+done_testing;
+EOD
+
 {
     my $app = CLASS->new();
     my $warning;
@@ -175,6 +189,15 @@ done_testing;
 EOD
         slurp( 'xt/author/test2_is_deeply.t' ),
         'Convert is_deeply() to is()';
+
+    $warning = warning {
+        is $app->convert( EXPLAIN_TEST ),
+            slurp( 'xt/author/test2_explain.t' ),
+            'Convert explain()';
+    };
+
+    like $warning, qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+        q<Correct 'use Test2::Tools::Explain' warning>;
 
     $warning = warning {
         is $app->convert( \<<'EOD' ),
@@ -483,6 +506,20 @@ EOD
     local $! = ENOENT;
     like $exception, qr<\AFailed to open xt/author/no_such_file.t: $!>,
         'Correct exception for missing file';
+}
+
+{
+    my $app = CLASS->new( explain => 'Data::Dumper=Dumper' );
+    my $warning;
+
+    $warning = warning {
+        is $app->convert( EXPLAIN_TEST ),
+            slurp( 'xt/author/test2_explain_data_dumper.t' ),
+            'Convert explain() to Data::Dumper::Dumper()';
+    };
+
+    like $warning, qr/\AAdded 'use Data::Dumper' in\b/,
+        q<Correct 'use YAML' warning>;
 }
 
 {

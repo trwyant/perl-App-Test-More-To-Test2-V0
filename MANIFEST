@@ -27,6 +27,8 @@ xt/author/pod_coverage.t
 xt/author/pod_links.t
 xt/author/pod_spelling.t
 xt/author/prereq.t
+xt/author/test2_explain.t
+xt/author/test2_explain_data_dumper.t
 xt/author/test2_is_deeply.t
 xt/author/test2_isa_ok_2.t
 xt/author/test2_no_plan_bare.t

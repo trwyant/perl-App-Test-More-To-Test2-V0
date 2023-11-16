@@ -222,8 +222,19 @@ sub _convert_sub__named__explain {
     $from->{name} eq $self->{_explain}{name}
 	or $from->{ele}->replace(
 	$self->_make_token( ref( $from->{ele} ), $self->{_explain}{name} ) );
+    $self->{_explain}{import} ||= do {
+	my %exports = map { $_ => 1 }
+	$self->_get_module_exports( $self->{_explain}{pkg} );
+	my @import;
+	$exports{$self->{_explain}{name}}
+	    or push @import, "'$self->{_explain}{name}'";
+	\@import;
+    };
     return( explain => sub {
-	    return $self->_add_use( $self->{_explain}{pkg} );
+	    return $self->_add_use(
+		$self->{_explain}{pkg},
+		@{ $self->{_explain}{import} },
+	    );
 	} );
 }
 
@@ -995,8 +1006,7 @@ The default is false.
 
 This argument specifies how to convert
 L<Test::More::explain()|Test::More>. The value is the package to load
-and the subroutine to call, separated by an equals sign. The package is
-assumed to export the subroutine by default.
+and the subroutine to call, separated by an equals sign.
 
 The default is C<Test2::Tools::Explain=explain>.
 

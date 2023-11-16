@@ -523,6 +523,20 @@ EOD
 }
 
 {
+    my $app = CLASS->new( explain => 'Data::Dump=dump' );
+    my $warning;
+
+    $warning = warning {
+        is $app->convert( EXPLAIN_TEST ),
+            slurp( 'xt/author/test2_explain_data_dump.t' ),
+            'Convert explain() to Data::Dumper::Dumper()';
+    };
+
+    like $warning, qr/\AAdded 'use Data::Dump' in\b/,
+        q<Correct 'use YAML' warning>;
+}
+
+{
     my $app = CLASS->new();
 
     my $exception = dies {

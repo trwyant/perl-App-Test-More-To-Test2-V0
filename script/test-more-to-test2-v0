@@ -140,8 +140,6 @@ This option controls how C<explain()> is converted. The argument is a
 string specifying the module to import and the subroutine to use in
 place of C<explain()>.
 
-The module is assumed to export the subroutine by default.
-
 The default is C<--explain Test2::Tools::Explain=explain>.
 
 =head2 --help

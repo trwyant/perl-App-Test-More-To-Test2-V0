@@ -190,6 +190,25 @@ EOD
         slurp( 'xt/author/test2_is_deeply.t' ),
         'Convert is_deeply() to is()';
 
+    is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+
+use Test::More;
+
+sub my_is_deeply {
+    goto &is_deeply;
+}
+
+my $answer = [ 42 ];
+
+my_is_deeply $answer, [ 42 ], 'The answer is [ 42 ]';
+
+done_testing;
+EOD
+        slurp( 'xt/author/test2_goto.t' ),
+        q/Convert 'goto &is_deeply' to 'goto &is'/;
+
     $warning = warning {
         is $app->convert( EXPLAIN_TEST ),
             slurp( 'xt/author/test2_explain.t' ),

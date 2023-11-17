@@ -785,7 +785,9 @@ sub _is_goto {
 sub _make_token {
     my ( $self, $class, $content ) = @_;
     state $valid_class = {
-	map { $_ => 1 } qw{ PPI::Token::Word PPI::Token::Whitespace }
+	map { $_ => 1 } qw{
+	    PPI::Token::Symbol PPI::Token::Word PPI::Token::Whitespace
+	}
     };
     $valid_class->{$class}
 	or $self->__confess( "_make_token( '$class', ... ) not supported" );

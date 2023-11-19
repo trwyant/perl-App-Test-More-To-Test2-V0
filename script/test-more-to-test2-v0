@@ -81,6 +81,7 @@ sub my_get_options {
 	    load_module|load-module! slurp! suffix=s
 	    support_module|support-module=s@
 	    support_sub|support-sub=s@
+	    uncomment_use|uncomment-use!
 	},
 	help => sub { pod2usage( { -verbose => 2 } ) },
     ) or pod2usage( { -verbose => 0 } );
@@ -217,6 +218,18 @@ script being converted and those exported by the modules specified by
 L<--support-module|/--support-module>.
 
 This option can be specified more than once.
+
+=head2 --uncomment-use
+
+If this Boolean option is asserted, any comment immediately after and on
+the same line as a modified C<use()> or C<no()> statement is removed.
+This is to avoid converting something like
+
+ use Test::More 0.88;  # Because of done_testing();
+
+into
+
+ use Test2::V0;  # Because of done_testing();
 
 =head2 --version
 

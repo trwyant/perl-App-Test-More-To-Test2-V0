@@ -40,6 +40,7 @@ sub new {
 	suffix		=> delete $arg{suffix},
 	support_module	=> delete $arg{support_module} || [],
 	support_sub	=> delete $arg{support_sub} || [],
+	uncomment_use	=> delete $arg{uncomment_use},
     }, $class;
     keys %arg
 	and $self->__croak( 'Unsupported arguments: ',
@@ -506,11 +507,31 @@ sub _convert_use {
 
 	my $repl_text = "$type $info->{to}";
 	if ( $info->{arg} ) {
+
 	    if ( $arg_allowed->{$type} ) {
+
 		my $arg;
 		defined( $arg = $info->{arg}->( $self ) )
 		    and $repl_text .= " $arg";
+
+		if ( $self->{uncomment_use} ) {
+		    my @sibs;
+		    my $ele = $use;
+		    while ( $ele = $ele->next_sibling() ) {
+			push @sibs, $ele;
+			$ele->isa( 'PPI::Token::Comment' )
+			    and last;
+			$ele->isa( 'PPI::Token::Whitespace' )
+			    and $ele->content() !~ m/ \n /smx
+			    and next;
+			@sibs = ();
+			last;
+		    }
+		    $_->delete() for @sibs;
+		}
+
 	    } else {
+
 		my $prefix;
 		my $prev_sib;
 		if ( $prev_sib = $use->previous_sibling()
@@ -1051,6 +1072,19 @@ the name of the original file with the suffix appended.
 
 B<Note> that a leading dot is B<not> implied; if you want F<t/foo.t>
 backed up to F<t/foo.t.bak>, you must specify C<--suffix .bak>.
+
+=item uncomment_use
+
+If this Boolean argument is true, any comment immediately after and on
+the same line as a modified C<use()> or C<no()> statement is removed.
+This is to avoid converting something like
+
+ use Test::More 0.88;  # Because of done_testing();
+
+into
+
+ use Test2::V0;  # Because of done_testing();
+
 
 =back
 

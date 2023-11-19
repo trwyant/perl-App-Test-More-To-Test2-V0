@@ -626,6 +626,48 @@ done_testing;
 EOD
 }
 
+{
+    my $app = CLASS->new(
+        uncomment_use   => 1,
+    );
+    my $warning;
+
+    note <<'EOD';
+We are not realy interested in explain() here, we're just re-using a
+handy manifest constant. The real goal is to test the uncomment_use
+functionality.
+EOD
+    $warning = warning {
+        is $app->convert( EXPLAIN_TEST ),
+            slurp( 'xt/author/test2_explain.t' ),
+            'Convert explain()';
+    };
+
+    like $warning, qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+        q<Correct 'use Test2::Tools::Explain' warning>;
+
+    $warning = warning {
+        is $app->convert( \<<'EOD' ),
+use strict;
+use warnings;
+use Test::More 0.88;    # Because of done_testing()
+
+my $answer = [ 42 ];
+
+is_deeply $answer, [ 42 ], 'The answer is [ 42 ]';
+
+note 'The answer is ', explain( $answer );
+
+done_testing;
+EOD
+            slurp( 'xt/author/test2_explain.t' ),
+            'Convert explain()';
+    };
+
+    like $warning, qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+        q<Correct 'use Test2::Tools::Explain' warning>;
+}
+
 done_testing;
 
 sub slurp {

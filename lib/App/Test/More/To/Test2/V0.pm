@@ -63,6 +63,7 @@ sub convert {
     my ( $self, $file ) = @_;
 
     local $self->{_cvt} = {
+	do_once		=> {},
 	file		=> $file,
 	ignore		=> {},
     };
@@ -99,7 +100,7 @@ sub _convert_by_hand {
     $stmt->insert_before( $_ )
 	for $self->_parse_string_kids(
 	qq<diag '\u@{[ CONVERT_BY_HAND ]} in ', __FILE__, ' line ', __LINE__; > );
-    return;
+    return 1;
 }
 
 sub _convert_sub {
@@ -113,7 +114,7 @@ sub _convert_sub {
 	explain		=> \&_convert_sub__named__explain,
 	is_deeply	=> sub {
 	    $_[0]->_convert_sub__rename( $_[1], { name => 'is' } );
-	    return;
+	    return 1;
 	},
 	isa_ok		=> \&_convert_sub__named__isa_ok,
 	plan		=> \&_convert_sub__named__plan,
@@ -123,8 +124,6 @@ sub _convert_sub {
 	'Test::Builder::Level' => \&_convert_sub__symbol__test_builder_level,
 	'TODO'		=> \&_convert_sub__symbol__TODO,
     };
-
-    my %generated;
 
     foreach my $from (
 	(
@@ -158,15 +157,16 @@ sub _convert_sub {
 	my $code = $sub_map_to->{ $from->{name} }
 	    or next;
 
-	$rslt++;
-
-	my ( $key, $fixup );
-	( $key, $fixup ) = $code->( $self, $from )
-	    and ( $generated{$key} ||= $fixup );
-
+	# Defensive programming
+	my $chgd = $code->( $self, $from );
+	if ( defined $chgd ) {
+	    $rslt += $chgd;
+	} else {
+	    $self->__croak( "Handler for '$from->{name}' returned undef" );
+	}
     }
 
-    $_->( $self ) for values %generated;
+    $_->( $self ) for values %{ $self->{_cvt}{do_once} };
 
     return $rslt;
 }
@@ -208,13 +208,15 @@ sub _convert_sub__named__BAIL_OUT {
 	};
     }
 
-    return( BAIL_OUT => $rslt );
+    $self->{_cvt}{do_once}{BAIL_OUT} ||= $rslt;
+
+    return 1;
 }
 
 sub _convert_sub__named__builder {
     my ( $self, $from ) = @_;	# $to unused
     PPIx::Utils::is_method_call( $from->{ele} )
-	or return;
+	or return 0;
     return $self->_convert_by_hand( $from->{ele} );
 }
 
@@ -231,12 +233,14 @@ sub _convert_sub__named__explain {
 	    or push @import, "'$self->{_explain}{name}'";
 	\@import;
     };
-    return( explain => sub {
-	    return $self->_add_use(
-		$self->{_explain}{pkg},
-		@{ $self->{_explain}{import} },
-	    );
-	} );
+    $self->{_cvt}{do_once}{explain} ||= sub {
+	return $self->_add_use(
+	    $self->{_explain}{pkg},
+	    @{ $self->{_explain}{import} },
+	);
+    };
+
+    return 1;
 }
 
 sub _convert_sub__named__isa_ok {
@@ -252,8 +256,10 @@ sub _convert_sub__named__isa_ok {
 	    }
 	}
 	$self->_replace_sub_args( $from->{ele}, "@{ $arg[0] }$punc @{ $arg[1] }" );
+	return 1;
+    } else {
+	return 0;
     }
-    return;
 }
 
 sub _convert_sub__named__plan {
@@ -276,27 +282,29 @@ sub _convert_sub__named__plan {
 		# on its own as a statement.
 		$from->{ele}->statement()->delete();
 	    }
+	    return 1;
 
 	} elsif ( @from_arg == 1 ) {
 	    # Do nothing, because we have already been converted.
+	    return 0;
 	} else {
 	    # We do not understand the call
-	    $self->_convert_by_hand( $from->{ele} );
+	    return $self->_convert_by_hand( $from->{ele} );
 	}
 
     } else {
-	$self->_convert_by_hand( $from->{ele} );
+	return $self->_convert_by_hand( $from->{ele} );
     }
-    return;
 }
 
 sub _convert_sub__named__require_ok {
     my ( $self, $from ) = @_;	# $to unused
 
-    $self->{load_module}
-	and return(
-	    load_module	=> \&_convert_sub__fixup__load_module_ok,
-	);
+    if ( $self->{load_module} ) {
+	$self->{_cvt}{do_once}{load_module} ||=
+	    \&_convert_sub__fixup__load_module_ok;
+	return 1;
+    }
 
     my @arg = PPIx::Utils::parse_arg_list( $from->{ele} );
 
@@ -347,16 +355,18 @@ END_OF_DATA
 
     $from->{ele}->replace( $self->_make_token( 'PPI::Token::Word', 'ok' ) );
 
-    return;
+    return 1;
 }
 
 sub _convert_sub__named__use_ok {
     my ( $self, $from ) = @_;	# $to unused
 
-    $self->{load_module}
-	and return(
-	    load_module	=> \&_convert_sub__fixup__load_module_ok,
-	);
+    # FIXME duplicated from require_ok
+    if ( $self->{load_module} ) {
+	$self->{_cvt}{do_once}{load_module} ||=
+	    \&_convert_sub__fixup__load_module_ok;
+	return 1;
+    }
 
     # NOTE: Most of the mess below is because someone may have written
     # 'use_ok ... or ...;'. The simplistic conversion of this to
@@ -408,13 +418,14 @@ sub _convert_sub__named__use_ok {
     # NOTE: This is the end of the mess described in the previous note.
 
     $from_stmt->replace( $to_stmt );
-    return(
-	use_ok => sub {
-	    $self->__carp(
-		"Added 'use ok'",
-	    );
-	},
-    );
+
+    $self->{_cvt}{do_once}{use_ok} ||= sub {
+	$self->__carp(
+	    "Added 'use ok'",
+	);
+    };
+
+    return 1;
 }
 
 sub _convert_sub__rename {
@@ -424,27 +435,27 @@ sub _convert_sub__rename {
 	$self->_make_token( $from->{class}, "$from->{sigil}$to->{name}" )
     );
 
-    return;
+    return 1;
 }
 
 sub _convert_sub__symbol__TODO {
     my ( $self, $from ) = @_;
 
     my $stmt = $from->{ele}->statement()
-	or return;
+	or return 0;
     $stmt->isa( 'PPI::Statement::Variable' )
-	or return;
+	or return 0;
 
     my $local = $stmt->schild( 0 )
-	or return;
+	or return 0;
     $local eq 'local'
-	or return;
+	or return 0;
 
     my $assign = $stmt->schild( 2 )
-	or return;
+	or return 0;
     $assign->isa( 'PPI::Token::Operator' )
 	and $assign eq '='
-	or return;
+	or return 0;
 
     my $rhs = $assign->next_sibling()
 	or return;
@@ -455,19 +466,18 @@ sub _convert_sub__symbol__TODO {
     $assign->insert_after( $_ ) for reverse $self->_parse_string_parts(
 	$todo );
 
-    return;
+    return 1;
 }
 
 sub _convert_sub__symbol__test_builder_level {
-    # my ( $self ) = @_;	# $self, $from, $to unused
+    my ( $self ) = @_;	# $from, $to unused
 
-    return(
-	'Test::Builder::Level',
-	sub {
-	    my ( $self ) = @_;
-	    return $self->_add_use( 'Test::Builder' );
-	},
-    );
+    $self->{_cvt}{do_once}{'Test::Builder::Level'} ||= sub {
+	my ( $self ) = @_;
+	return $self->_add_use( 'Test::Builder' );
+    };
+
+    return 1;
 }
 
 sub _convert_use {

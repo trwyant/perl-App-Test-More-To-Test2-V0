@@ -13,25 +13,55 @@ use App::Test::More::To::Test2::V0;
 our $VERSION = '0.000_001';
 
 {
-    my $is_win = {
-	MSWin32	=> 1,
-    };
+    my %use_config;
+    BEGIN {
+	%use_config = map { $_ => 1 } qw{ MSWin32 VMS };
+    }
 
-    use constant CFG_FILE	=> $is_win->{$^O} ?
-	'test-more-to-test2-v0.cfg' : 'test-more-to-test2-v0rc';
+    use constant CFG_FILE	=> $use_config{$^O} ?
+	'test-more-to-test2-v0.cfg' : '.test-more-to-test2-v0rc';
 }
 
-my %opt;
+# Specify default resource files.
+my %opt = (
+    local_rc	=> CFG_FILE,
+    user_rc	=> ( bsd_glob( "~/@{[ CFG_FILE ]}" ) )[0],
+);
 
-foreach my $cfg_dir (
-    [ 'meta' ],
-    [],
-    [ $ENV{HOME} ],
-) {
-    my $cfg_path = File::Spec->catfile( @{ $cfg_dir }, CFG_FILE );
+# Override default resource files with environment variables if defined.
+# The user file must exist.
+foreach ( keys %opt ) {
+    my $envvar = "TEST_MORE_TO_TEST2_V0_\U$_";
+    if ( defined $ENV{$envvar} && $ENV{$envvar} ne '' ) {
+	$opt{$_} = $ENV{$envvar};
+	$_ eq 'user_rc'
+	    and $opt{"_$_"} = 1;
+    }
+}
+
+# Get resource files from the command line. These must exist.
+{
+    my $p = Getopt::Long::Parser->new(
+	config	=> [ qw{ auto_version pass_through } ],
+    );
+    $p->getoptions( \%opt,
+	'user_rc|user-rc|userrc=s',	\&config_file_opt,
+	'local_rc|local-rc|localrc=s',	\&config_file_opt,
+	help => sub { pod2usage( { -verbose => 2 } ) },
+    );
+}
+
+# Read and parse resource files.
+foreach my $key ( qw{ user_rc local_rc } ) {
+    my $cfg_path = $opt{$key};
     open my $fh, '<:encoding(utf-8)', $cfg_path
-	or next;
+	or do {
+	$opt{"_$key"}
+	    or next;
+	die "Failed to open $cfg_path: $!\n";
+    };
     my @add_arg;
+    my $opt_allowed = 1;
     while ( <$fh> ) {
 	m/ \A \s* [#] /smx
 	    and next;
@@ -39,12 +69,26 @@ foreach my $cfg_dir (
 	    or next;
 	s/ \A \s+ //smx;
 	s/ \s+ \z //smx;
-	push @add_arg, m/ \A - /smx ? $_ : bsd_glob( $_ );
+	# FIXME handle '--', files that don't exist (in user config)
+	# Maybe the latter is by manipulating {__want_files}
+	## push @add_arg, m/ \A - /smx ? $_ : bsd_glob( $_ );
+
+	if ( m/ \A - /smx && $opt_allowed ) {
+	    push @add_arg, $_;
+	    $opt_allowed = $_ ne '--';
+	} else {
+	    state $glob_arg = {
+		local_rc	=> \&File::Glob::bsd_glob,
+		user_rc		=> sub {
+		    return( grep { -e } bsd_glob( $_ ) );
+		},
+	    };
+	    push @add_arg, $glob_arg->{$key}->( $_ );
+	}
     }
     close $fh;
 
     my_get_options( @add_arg );
-    last;
 }
 
 my_get_options( @ARGV );
@@ -56,6 +100,8 @@ my @want_files = @{ delete $opt{_want_files} || [] };
 
 delete $opt{slurp}
     and @want_files = map { slurp( $_ ) } @want_files;
+
+delete $opt{$_} for qw{ user_rc local_rc };
 
 my $app = App::Test::More::To::Test2::V0->new(
     %opt,
@@ -70,10 +116,22 @@ foreach my $file ( @want_files ) {
     }
 }
 
-sub my_get_options {
-    local @ARGV = @_;
+sub config_file_opt {
+    my ( $name, $value ) = @_;
+    $value =~ m/ \A ~ /smx
+	and ( $value ) = bsd_glob( $value );
+    $opt{$name} = $value;
+    $opt{"_$name"} = 1;
+    return;
+}
 
-    GetOptions( \%opt,
+sub my_get_options {
+    my @arg = @_;
+
+    state $p = Getopt::Long::Parser->new();
+
+    $p->getoptionsfromarray( \@arg, \%opt,
+	'local_rc|local-rc|localrc=s',	\&config_file_opt,
 	qw{
 	    bail_on_fail|bail-on-fail!
 	    explain=s
@@ -83,11 +141,13 @@ sub my_get_options {
 	    support_sub|support-sub=s@
 	    uncomment_use|uncomment-use!
 	},
-	help => sub { pod2usage( { -verbose => 2 } ) },
     ) or pod2usage( { -verbose => 0 } );
 
-    @ARGV
-	and $opt{_want_files} = [ @ARGV ];
+    @arg
+	and $opt{_want_files} = \@arg;
+
+    # --local-rc from a file does not have to exist.
+    delete $opt{_local_rc};
 
     return;
 }
@@ -178,11 +238,28 @@ L<Test2::Tools::Basic::diag()|Test2::Tools::Basic> is undocumented.
 
 The default is C<-no-load-module>.
 
+=head2 --local-rc
+
+ --local-rc=convert-test.cfg
+
+This option specifies the path of the local resource file. If the option
+is specified on the command line, this file must exist. If the option is
+specified in the user resource file, this file need not exist.
+
+If this option is not given, the local resource file defaults to the
+value of environment variable C<TEST_MORE_TO_TEST2_V0_USER_RC> if that
+exists and is not C<''>. This file need not exist.
+
+If not specified either way, the default is F<test-more-to-test2-v0.cfg>
+under Windows or VMS, or F<.test-more-to-test2-v0rc> under any other
+operating system. This file need not exist.
+
 =head2 --slurp
 
 If this Boolean option is asserted, any files specified on the command
 line are slurped, and their contents are converted and displayed on
-C<STDOUT>. Otherwise the files are converted in-place.
+C<STDOUT>. Otherwise the files are converted in-place unless
+L<--suffix|/--suffix> is specified.
 
 The default is C<--no-slurp>.
 
@@ -231,6 +308,20 @@ into
 
  use Test2::V0;  # Because of done_testing();
 
+=head2 --user-rc
+
+ --user-rc=~/convert-test.cfg
+
+This option specifies the path of the user resource file. This
+defaults to the value of environment variable
+C<TEST_MORE_TO_TEST2_V0_USER_RC> if that exists and is not C<''>. Either
+way, the file must exist.
+
+If not specified either way, the default is
+F<~/test-more-to-test2-v0.cfg> under Windows or VMS, or
+F<~/.test-more-to-test2-v0rc> under any other operating system. This
+file need not exist.
+
 =head2 --version
 
 This option displays the version of this script. The script then exits.
@@ -250,19 +341,19 @@ L<convert()|App::Test::More::To::Test2::V0/convert> method.
 B<Caveat:> Files are modified in-place unless L<--suffix|/--suffix> is
 specified.
 
-=head1 CONFIGURATION FILE
+=head1 RESOURCE FILE
 
-You can configure options using a configuration file. The name of this
-file is F<test-more-to-test2-v0.cfg> under Windows, and
-F<test-more-to-test2v0rc> under any other operating system. The
-configuration file can be found either in the F<meta/> subdirectory of
-the distribution being converted, in the distribution directory itself,
-or in the user's home directory. The first one found will be used.
+You can configure options using resource files. The name of this
+file is F<test-more-to-test2-v0.cfg> under Windows or VMS, or
+F<.test-more-to-test2v0rc> under any other operating system. The There
+are actually two of these, a user file in the user's home directory, and
+a local file in the current directory. Configuration in the local file
+takes precedence over the user file, and the command line takes
+precedence over both.
 
-The configuration file contains command arguments, one per line. Blank
+A resource file contains command arguments, one per line. Blank
 lines and lines whose first non-blank character is C<'#'> will be
-ignored. Options and arguments specified on the command line override
-those specified in the configuration file.
+ignored.
 
 =head1 AUTHOR
 

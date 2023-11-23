@@ -34,6 +34,7 @@ sub build_requires {
 	ok		=> 0,
 	'Errno'		=> 0,
 	'File::Temp'	=> 0,
+	'File::Spec'	=> 0,
 	'Test2::V0'	=> 0,
 	'Test2::Plugin::NoWarnings'	=> 0,
 	'Test2::Plugin::BailOnFail'	=> 0,

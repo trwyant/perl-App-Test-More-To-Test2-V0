@@ -13,7 +13,9 @@ META.yml
 README
 script/test-more-to-test2-v0
 t/basic.t
+t/data/user.cfg
 t/elementary.t
+t/script.t
 xt/author/basic.t
 xt/author/changes.t
 xt/author/critic.t

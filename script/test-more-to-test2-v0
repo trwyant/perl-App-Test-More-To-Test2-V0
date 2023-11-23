@@ -22,116 +22,148 @@ our $VERSION = '0.000_001';
 	'test-more-to-test2-v0.cfg' : '.test-more-to-test2-v0rc';
 }
 
-# Specify default resource files.
-my %opt = (
-    local_rc	=> CFG_FILE,
-    user_rc	=> ( bsd_glob( "~/@{[ CFG_FILE ]}" ) )[0],
-);
+caller
+    or run( @ARGV );
 
-# Override default resource files with environment variables if defined.
-# The user file must exist.
-foreach ( keys %opt ) {
-    my $envvar = "TEST_MORE_TO_TEST2_V0_\U$_";
-    if ( defined $ENV{$envvar} && $ENV{$envvar} ne '' ) {
-	$opt{$_} = $ENV{$envvar};
-	$_ eq 'user_rc'
-	    and $opt{"_$_"} = 1;
-    }
+sub run {
+    my $self = __PACKAGE__->new( @_ );
+    $self->process_options();
+    $self->execute();
+    return;
 }
 
-# Get resource files from the command line. These must exist.
-{
-    my $p = Getopt::Long::Parser->new(
-	config	=> [ qw{ auto_version pass_through } ],
-    );
-    $p->getoptions( \%opt,
-	'user_rc|user-rc|userrc=s',	\&config_file_opt,
-	'local_rc|local-rc|localrc=s',	\&config_file_opt,
-	help => sub { pod2usage( { -verbose => 2 } ) },
-    );
-}
+sub new {
+    my ( $class, @args ) = @_;
 
-# Read and parse resource files.
-foreach my $key ( qw{ user_rc local_rc } ) {
-    my $cfg_path = $opt{$key};
-    open my $fh, '<:encoding(utf-8)', $cfg_path
-	or do {
-	$opt{"_$key"}
-	    or next;
-	die "Failed to open $cfg_path: $!\n";
-    };
-    my @add_arg;
-    my $opt_allowed = 1;
-    while ( <$fh> ) {
-	m/ \A \s* [#] /smx
-	    and next;
-	m/ \S /smx
-	    or next;
-	s/ \A \s+ //smx;
-	s/ \s+ \z //smx;
-	# FIXME handle '--', files that don't exist (in user config)
-	# Maybe the latter is by manipulating {__want_files}
-	## push @add_arg, m/ \A - /smx ? $_ : bsd_glob( $_ );
+    # Specify default resource files.
+    my %self = (
+	_args		=> \@args,
+	local_rc	=> CFG_FILE,
+	user_rc		=> ( bsd_glob( "~/@{[ CFG_FILE ]}" ) )[0],
+    );
 
-	if ( m/ \A - /smx && $opt_allowed ) {
-	    push @add_arg, $_;
-	    $opt_allowed = $_ ne '--';
-	} else {
-	    state $glob_arg = {
-		local_rc	=> \&File::Glob::bsd_glob,
-		user_rc		=> sub {
-		    return( grep { -e } bsd_glob( $_ ) );
-		},
-	    };
-	    push @add_arg, $glob_arg->{$key}->( $_ );
+    # Override default resource files with environment variables if defined.
+    # The user file must exist.
+    foreach ( keys %self ) {
+	my $envvar = "TEST_MORE_TO_TEST2_V0_\U$_";
+	if ( defined $ENV{$envvar} && $ENV{$envvar} ne '' ) {
+	    $self{$_} = $ENV{$envvar};
+	    $_ eq 'user_rc'
+		and $self{"_$_"} = 1;
 	}
     }
-    close $fh;
 
-    my_get_options( @add_arg );
+    # Get resource files from the command line. These must exist.
+    {
+	state $p = Getopt::Long::Parser->new(
+	    config	=> [ qw{ auto_version pass_through } ],
+	);
+
+	my $handler = sub { config_file_opt( \%self, @_ ) };
+
+	$p->getoptionsfromarray( \@args, \%self,
+	    'user_rc|user-rc|userrc=s',		$handler,
+	    'local_rc|local-rc|localrc=s',	$handler,
+	    help => sub { pod2usage( { -verbose => 2 } ) },
+	);
+    }
+
+    return bless \%self, $class;
 }
 
-my_get_options( @ARGV );
+sub process_options {
+    my ( $self ) = @_;
 
-my @want_files = @{ delete $opt{_want_files} || [] };
+    # Read and parse resource files.
+    foreach my $key ( qw{ user_rc local_rc } ) {
+	my $cfg_path = $self->{$key};
+	open my $fh, '<:encoding(utf-8)', $cfg_path
+	    or do {
+	    $self->{"_$key"}
+		or next;
+	    die "Failed to open $cfg_path: $!\n";
+	};
+	my @add_arg;
+	my $opt_allowed = 1;
+	while ( <$fh> ) {
+	    m/ \A \s* [#] /smx
+		and next;
+	    m/ \S /smx
+		or next;
+	    s/ \A \s+ //smx;
+	    s/ \s+ \z //smx;
 
-@want_files
-    or @want_files = bsd_glob( 't/*.t' );
+	    if ( m/ \A - /smx && $opt_allowed ) {
+		push @add_arg, $_;
+		$opt_allowed = $_ ne '--';
+	    } else {
+		state $glob_arg = {
+		    local_rc	=> \&File::Glob::bsd_glob,
+		    user_rc		=> sub {
+			return( grep { -e } bsd_glob( $_ ) );
+		    },
+		};
+		push @add_arg, $glob_arg->{$key}->( $_ );
+	    }
+	}
+	close $fh;
 
-delete $opt{slurp}
-    and @want_files = map { slurp( $_ ) } @want_files;
-
-delete $opt{$_} for qw{ user_rc local_rc };
-
-my $app = App::Test::More::To::Test2::V0->new(
-    %opt,
-    die		=> 1,
-);
-
-foreach my $file ( @want_files ) {
-    if ( ref $file ) {
-	print $app->convert( $file );
-    } else {
-	$app->convert( $file );
+	$self->my_get_options( \@add_arg );
     }
+
+    $self->my_get_options( delete $self->{_args} );
+
+    $self->{_want_files} ||= [ bsd_glob( 't/*.t' ) ];
+
+    delete $self->{slurp}
+	and @{ $self->{_want_files} } =
+	map { slurp( $_ ) } @{ $self->{_want_files} };
+
+    delete $self->{$_} for qw{ user_rc _user_rc local_rc _local_rc };
+
+    return;
+}
+
+sub execute {
+    my ( $self ) = @_;
+
+    my @want_files = @{ delete $self->{_want_files} };
+
+    my $app = $self->{_app} ||= do {
+	delete local $self->{_app};	# Because it got autovivified.
+	App::Test::More::To::Test2::V0->new(
+	    %{ $self },
+	    die		=> 1,
+	);
+    };
+
+    foreach my $file ( @want_files ) {
+	if ( ref $file ) {
+	    print $app->convert( $file );
+	} else {
+	    $app->convert( $file );
+	}
+    }
+
+    return;
 }
 
 sub config_file_opt {
-    my ( $name, $value ) = @_;
+    my ( $self, $name, $value ) = @_;
     $value =~ m/ \A ~ /smx
 	and ( $value ) = bsd_glob( $value );
-    $opt{$name} = $value;
-    $opt{"_$name"} = 1;
+    $self->{$name} = $value;
+    $self->{"_$name"} = 1;
     return;
 }
 
 sub my_get_options {
-    my @arg = @_;
+    my ( $self, $args ) = @_;
 
     state $p = Getopt::Long::Parser->new();
 
-    $p->getoptionsfromarray( \@arg, \%opt,
-	'local_rc|local-rc|localrc=s',	\&config_file_opt,
+    $p->getoptionsfromarray( $args, $self,
+	'local_rc|local-rc|localrc=s',	sub { config_file_opt( $self, @_ ) },
 	qw{
 	    bail_on_fail|bail-on-fail!
 	    explain=s
@@ -143,11 +175,11 @@ sub my_get_options {
 	},
     ) or pod2usage( { -verbose => 0 } );
 
-    @arg
-	and $opt{_want_files} = \@arg;
+    @{ $args }
+	and $self->{_want_files} = [ @{ $args } ];
 
     # --local-rc from a file does not have to exist.
-    delete $opt{_local_rc};
+    delete $self->{_local_rc};
 
     return;
 }

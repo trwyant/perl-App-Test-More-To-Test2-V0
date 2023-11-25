@@ -32,6 +32,7 @@ sub new {
     my $self = bless {
 	bail_on_fail	=> delete $arg{bail_on_fail},
 	die		=> delete $arg{die},
+	dry_run		=> delete $arg{dry_run},
 	explain		=> delete $arg{explain} //
 	    'Test2::Tools::Explain=explain',
 	lib		=> delete $arg{lib} || [],
@@ -78,7 +79,7 @@ sub convert {
 
     my $content = $doc->serialize();
 
-    if ( $rewrite && ! ref $file ) {
+    if ( $rewrite && ! ref $file && ! $self->{dry_run} ) {
 	if ( defined( $self->{suffix} ) && $self->{suffix} ne '' ) {
 	    my $backup = $file . $self->{suffix};
 	    rename $file, $backup
@@ -1032,6 +1033,13 @@ or L<die> as appropriate. If false, they will be reported using
 L<Carp::carp()|Carp> or L<Carp::croak()|Carp>.
 
 B<Note> that this argument is ignored if C<$Carp::Verbose> is true.
+
+The default is false.
+
+=item dry_run
+
+If this Boolean argument is true, then all the conversion code is run,
+but no changes are written.
 
 The default is false.
 

@@ -60,11 +60,15 @@ EOD
     local $ENV{TEST_MORE_TO_TEST2_V0_LOCAL_RC} = DEVNULL;
 
     ok lives {
-	$app = __PACKAGE__->new();
-    }, 'Can instantiate script object';
+	$app = __PACKAGE__->new(
+	    qw{ --dry-run },
+	);
+    }, 'Can instantiate script object'
+	or diag $@;
 
     is $app, {
 	_args		=> [],
+	dry_run		=> 1,
 	local_rc	=> DEVNULL,
 	user_rc		=> 't/data/user.cfg',
 	_user_rc	=> 1,
@@ -72,13 +76,32 @@ EOD
 
     ok lives {
 	$app->process_options();
-    }, 'Processed options successfully';
+    }, 'Processed options successfully'
+	or diag $@;
 
     is $app, {
 	bail_on_fail	=> 1,
+	dry_run		=> 1,
 	uncomment_use	=> 1,
 	_want_files	=> [ qw{ t/basic.t t/elementary.t t/script.t } ],
     }, 'Got expected script object';
+
+    my $warnings;
+    ok lives {
+	$warnings = warnings {
+	    $app->execute();
+	}
+    }, 'Converted files successfully'
+	or diag $@;
+
+    $warnings ||= [];	# In case we died
+    is scalar @{ $warnings }, 3, 'Got three warnings';
+
+    is $warnings, [
+	match qr|\At/basic\.t does not use Test::More \(or so I think\)|,
+	match qr|\At/elementary\.t does not use Test::More \(or so I think\)|,
+	match qr|\At/script\.t does not use Test::More \(or so I think\)|,
+    ], 'Got expected warnings';
 }
 
 done_testing;

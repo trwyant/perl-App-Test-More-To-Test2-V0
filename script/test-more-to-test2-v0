@@ -62,8 +62,9 @@ sub new {
 	my $handler = sub { config_file_opt( \%self, @_ ) };
 
 	$p->getoptionsfromarray( \@args, \%self,
-	    'user_rc|user-rc|userrc=s',		$handler,
+	    qw{ dry_run|dry-run! },
 	    'local_rc|local-rc|localrc=s',	$handler,
+	    'user_rc|user-rc|userrc=s',		$handler,
 	    help => sub { pod2usage( { -verbose => 2 } ) },
 	);
     }
@@ -224,6 +225,13 @@ L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>. Otherwise it
 just installs its own C<BAIL_OUT()> subroutine.
 
 The default is C<-no-bail-on-fail>.
+
+=head2 --dry-run
+
+If this Boolean option is asserted, all conversions are done, but
+nothing is written back to the disk.
+
+The default is C<--no-dry-run>.
 
 =head2 --explain
 

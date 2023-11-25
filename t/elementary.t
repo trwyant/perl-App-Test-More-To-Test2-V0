@@ -30,7 +30,7 @@ EOD
     my $warning;
 
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 EOD
@@ -44,7 +44,7 @@ EOD
     like $warning, qr{\bdoes not use Test::More\b},
         'Correct null conversion warning';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -56,7 +56,7 @@ EOD
         slurp( 'xt/author/test2_use.t' ),
         'Convert use Test::More';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More tests => 2;
@@ -68,7 +68,7 @@ EOD
         slurp( 'xt/author/test2_plan_list.t' ),
        'Convert use Test::More tests => 2';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More tests => 2;
@@ -82,7 +82,7 @@ EOD
         slurp( 'xt/author/test2_plan_list_with_collision.t' ),
        'Convert use Test::More tests => 2, with collision';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More 'tests', 2;
@@ -94,7 +94,7 @@ EOD
         slurp( 'xt/author/test2_plan_list.t' ),
         q<Convert use Test::More 'tests', 2>;
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More ( 'tests', 2 );
@@ -106,7 +106,7 @@ EOD
         slurp( 'xt/author/test2_plan_list.t' ),
         q<Convert use Test::More ( 'tests', 2 )>;
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More
@@ -120,7 +120,7 @@ EOD
         slurp( 'xt/author/test2_plan_list.t' ),
         q{Convert plan( tests => 2 )};
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -134,7 +134,7 @@ EOD
         slurp( 'xt/author/test2_plan_bare.t' ),
         q{Convert plan tests => 2};
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -148,7 +148,7 @@ EOD
         slurp( 'xt/author/test2_no_plan_bare.t' ),
         q{Convert plan 'no_plan'};
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -158,7 +158,7 @@ EOD
         slurp( 'xt/author/test2_skip_all_bare.t' ),
         q{Convert plan skip_all => 'Taking the day off'};
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -168,7 +168,7 @@ EOD
         slurp( 'xt/author/test2_skip_all_list.t' ),
         q{Convert plan( 'skip_all', 'Taking the day off' )};
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -190,7 +190,7 @@ EOD
         slurp( 'xt/author/test2_is_deeply.t' ),
         'Convert is_deeply() to is()';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 
@@ -210,7 +210,7 @@ EOD
         q/Convert 'goto &is_deeply' to 'goto &is'/;
 
     $warning = warning {
-        is $app->convert( EXPLAIN_TEST ),
+        is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain.t' ),
             'Convert explain()';
     };
@@ -219,7 +219,7 @@ EOD
         q<Correct 'use Test2::Tools::Explain' warning>;
 
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -236,7 +236,7 @@ EOD
         q<Correct 'use ok' warning>;
 
     $warning = warnings {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -255,7 +255,7 @@ EOD
     like $warning->[1], qr/\AAdded 'use ok' in\b/,
         q<Correct 'use ok' warning>;
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -267,7 +267,7 @@ EOD
         slurp( 'xt/author/test2_require_ok.t' ),
         'Convert require_ok() using ok lives { require ... }';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -282,7 +282,7 @@ EOD
 
     # TODO figure out how to execute xt/author/test2_bail_out.t without
     # terminating the entire test suite.
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -306,7 +306,7 @@ done_testing;
 EOD
    'Provide BAIL_OUT()';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -323,7 +323,7 @@ EOD
        'Convert $TODO';
 
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 
@@ -347,7 +347,7 @@ EOD
         'Correct Test::More->builder() warning';
 
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -370,7 +370,7 @@ EOD
         qr{\bAdded 'use Test::Builder' in\b},
         'Correct $Test::Builder::Level warning';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -384,7 +384,7 @@ EOD
         slurp( 'xt/author/test2_isa_ok_2.t' ),
         'Handle isa_ok with two arguments';
 
-    is $app->convert( \<<'EOD' ),
+    is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -402,7 +402,7 @@ EOD
     # because Test2::Plugin::NoWarnings is not part of Test2-Suite, so
     # we do not know it is available.
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -435,7 +435,7 @@ EOD
     my $warning;
 
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -460,7 +460,7 @@ EOD
     # TODO figure out how to execute xt/author/test2_bail_out_bail_on_fail.t
     # without terminating the entire test suite.
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -487,7 +487,7 @@ EOD
         'Correct Test2::Plugin::BailOnFail warning';
 
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More;
@@ -519,7 +519,7 @@ EOD
     my $app = CLASS->new();
 
     my $exception = dies {
-        $app->convert( 'xt/author/no_such_file.t' );
+        $app->convert( 'xt/author/no_such_file.t' )->content();
     };
 
     local $! = ENOENT;
@@ -532,7 +532,7 @@ EOD
     my $warning;
 
     $warning = warning {
-        is $app->convert( EXPLAIN_TEST ),
+        is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain_data_dumper.t' ),
             'Convert explain() to Data::Dumper::Dumper()';
     };
@@ -546,7 +546,7 @@ EOD
     my $warning;
 
     $warning = warning {
-        is $app->convert( EXPLAIN_TEST ),
+        is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain_data_dump.t' ),
             'Convert explain() to Data::Dumper::Dumper()';
     };
@@ -581,7 +581,7 @@ pass 'Copacetic';
 done_testing;
 EOD
 
-    $app->convert( "$dir/foo.t" );
+    $app->convert( "$dir/foo.t" )->content();
 
     is slurp( "$dir/foo.t" ), <<'EOD', 'Rewrote correct conversion';
 use strict;
@@ -611,7 +611,7 @@ EOD
 
     spew( "$dir/foo.t", $data );
 
-    $app->convert( "$dir/foo.t" );
+    $app->convert( "$dir/foo.t" )->content();
 
     is slurp( "$dir/foo.t.bak" ), $data, 'Is the backup file correct';
 
@@ -638,7 +638,7 @@ handy manifest constant. The real goal is to test the uncomment_use
 functionality.
 EOD
     $warning = warning {
-        is $app->convert( EXPLAIN_TEST ),
+        is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain.t' ),
             'Convert explain()';
     };
@@ -647,7 +647,7 @@ EOD
         q<Correct 'use Test2::Tools::Explain' warning>;
 
     $warning = warning {
-        is $app->convert( \<<'EOD' ),
+        is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
 use Test::More 0.88;    # Because of done_testing()

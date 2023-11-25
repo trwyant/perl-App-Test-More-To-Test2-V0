@@ -139,11 +139,9 @@ sub execute {
     };
 
     foreach my $file ( @want_files ) {
-	if ( ref $file ) {
-	    print $app->convert( $file );
-	} else {
-	    $app->convert( $file );
-	}
+	$app->convert( $file );
+	ref $file
+	    and print $app->content();
     }
 
     return;

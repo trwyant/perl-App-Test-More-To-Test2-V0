@@ -4,6 +4,7 @@ CONTRIBUTING
 inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
 lib/App/Test/More/To/Test2/V0.pm
+lib/App/Test/More/To/Test2/V0/Background.pod
 LICENSES/Artistic
 LICENSES/Copying
 Makefile.PL

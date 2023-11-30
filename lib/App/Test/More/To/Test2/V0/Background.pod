@@ -1,0 +1,215 @@
+=head1 NAME
+
+App::Test::More::To::Test2::V0::Background - Converting L<Test::More|Test::More> Tests to L<Test2::V0|Test2::V0>
+
+=head1 INTRODUCTION
+
+On September 21 2023 it was announced on the Perl 5 Porters (P5P) mailing list that L<Perl now includes Test2-Suite|https://www.nntp.perl.org/group/perl.perl5.porters/2023/09/msg267068.html>. The ensuing discussion included the opinion that a script to convert L<Test::More|Test::More> tests to L<Test2::V0|Test2::V0> would be useful.
+
+I decided to look into the feasibility of such a script. The management summary is that it is possible to automate B<most> of the work, but there are significant cases which will need to be converted by hand.
+
+=head1 REQUIREMENTS
+
+As of C<Test2-Suite> version C<0.000159> dated 2023-10-25, an explicit C<use 5.008001;> is specified in F<Makefile.PL>, though I understand that Unicode support was not really in place until about 5.8.4.
+
+L<Test2::V0|Test2::V0> requires L<Term::Table|Term::Table>, which is being added to core as well. C<Term-Table> also has C<use 5.008001;> in its F<Makefile.PL>.
+
+=head1 CONVERSION
+
+The C<Test2-Suite> tests are B<mostly> plug-compatible with the same-named C<Test-More> tests, though the internals are quite different, and the C<Test2-Suite> code does B<not> make use of L<Test::Builder|Test::Builder> under the hood.
+
+The L<Test2::V0|Test2::V0> documentation summarizes what is available in C<Test2-Suite>. L<Test2::Manual::Testing::Migrating|Test2::Manual::Testing::Migrating> covers converting from L<Test::More|Test::More>.
+
+You will find that things like C<is()>, C<like()>, C<ok()>, C<cmp_ok()>, C<subtest()>, and C<skip()> should work unmodified. Other constructions will need some modifications. Those I have encountered are listed below.
+
+=head2 C<use Test::More ...>
+
+The obvious change to C<use Test2::V0;> needs to be made here.
+
+If you specified an import list to C<use Test::More> you will need to do a little more work, because L<Test2::V0|Test2::V0> does not support the L<Test::More|Test::More> imports C<< tests => $number >>, C<< skip_all => $reason >>, or C<'no_plan'>. Instead, you will need to call C<plan( $number )> or C<skip_all( $reason )>, or C<done_testing()> as appropriate.
+
+=head2 C<plan()>
+
+C<Test2-Suite> replaces C<< plan( tests => $number ) >> with C<plan( $number )>, and C<< plan( skip_all => $reason ) >> with C<skip_all( $reason )>.
+
+=head2 C<is_deeply()>
+
+C<Test2-Suite> merges this into C<is()>.
+
+=head2 C<local $TODO = $reason;>
+
+C<Test2-Suite> replaces this with C<my $TODO = todo $reason;>. The name of the variable is unimportant.
+
+=head2 C<BAIL_OUT()>
+
+C<Test2-Suite> does not supply a C<BAIL_OUT()> subroutine. Instead, you are encouraged to C<use Test2::Plugin::BailOnFail;> which bails out on B<any> test failure in the test file. Because of the way I organize my tests I actually prefer this over writing something like C<... or BAIL_OUT;> not only because it is less verbose but because I may (read "will") forget to add C<or BAIL_OUT> when I add a new test.
+
+But converting a L<Test::More|Test::More> test script to L<Test2::V0|Test2::V0> according to this recommendation involves ripping all these out, and the test scripts may not be organized so that B<any> test failure should cause the entire test suite to be abandoned. In this case, you can provide your own C<BAIL_OUT()>:
+
+ sub BAIL_OUT {
+   context()->bail( @_ );
+ }
+
+=head2 C<use_ok()>
+
+This is not in C<Test2-Suite>, the explanation being that if the C<use ...> fails the test file will also fail. My problem with this is that if loading one of the modules under test fails, the whole test suite should be abandoned. In terms of L<Test::More|Test::More>, it should C<BAIL_OUT()>.
+
+If you really want this, L<Test2::Manual::Testing::Migrating|Test2::Manual::Testing::Migrating> recommends replacing C<use_ok ...> with C<use ok ...>. L<ok|ok> is a test based directly on L<Test::Builder|Test::Builder>, but which runs at compile time, unlike C<use_ok()> (unless you enclose it in a C<BEGIN {}> block). My experimentation says that if C<use ok ...> fails and L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail> is in effect, the entire test suite is aborted, but noisily.
+
+B<Note> that changing C<use_ok ...> to C<use ok ...> changes the order of execution, because a C<use ...> is done at compile time. If you want to use C<plan()> with C<use ok ...>, you will need to code it as C<BEGIN { plan ...; }>.
+
+B<Note also> that while C<use_ok( ... ) or ...> is perfectly legitimate Perl, C<use ok ... or ...> is a syntax error. If the code was in fact C<use_ok( ... ) or BAIL_OUT ...;> you will need to either abandon the C<or ...>, convert the module to L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>, (see L<C<BAIL_OUT()>|/BAIL_OUT()>, above) or convert C<use_ok()> as though it were L<C<require_ok()>|/require_ok()> (see below).
+
+Another way to deal with this, which avoids the above caveats, is to C<use Test2::Tools::LoadModule ':more';>. This imports a C<use_ok()> which should be pretty compatible with the L<Test::More> version of that test. Disclaimer: I am the author of L<Test2::Tools::LoadModule|Test2::Tools::LoadModule>, and therefore also the complaint department if compatibility problems are found.
+
+=head2 C<require_ok()>
+
+Unlike C<use_ok()>, this has no recommended translation to C<Test2-Suite>.
+
+One way to deal with this is something like
+
+ ok lives { require $module }, "Can load $module"
+   or diag $@;
+
+though of course you will need to use the bareword form of C<require> if the argument to C<require_ok()> is a module name.
+
+Another way is the above-mentioned L<Test2::Tools::LoadModule|Test2::Tools::LoadModule>, whose C<:more> tag also exports C<require_ok()>.
+
+=head2 C<explain()>
+
+There is nothing in C<Test2-Suite> corresponding to this. It is really not needed in a test suite, since you can just as well use your own favorite serializer. Or, Andy Lester has written L<Test2::Tools::Explain|Test2::Tools::Explain>, which exports C<explain()>.
+
+=head2 C<isa_ok()>
+
+There is a subtle difference between the signatures of the L<Test::More|Test::More> and L<Test2::V0|Test2::V0> versions of this subroutine. The former takes two or three arguments, where the third is used instead of the actual class name to construct the test name. The C<Test2-Suite> version of C<isa_ok()> takes two or more arguments, with all arguments after the first being class names. So use of the third L<Test::More::isa_ok()|Test::More> argument results in very strange test failures unless it is removed from the C<Test2-Suite> version of the call.
+
+=head2 C<subtest()>
+
+L<Test2::Tools::Subtest|Test2::Tools::Subtest> actually provides two sub-test routines: C<subtest_buffered()> and C<subtest_streamed()>. The latter is equivalent to L<Test::More::subtest()|Test::More>, but the former is preferred because of its behaviour under concurrency.
+
+But you do not have to do anything about this, because L<Test2::V0|Test2::V0> exports C<subtest_buffered()> as C<subtest()>.
+
+=head2 C<use Test::Warnings;>
+
+This is not part of the C<Test-More> distribution, but can be used with it. Effectively it adds a test to the B<end> of the test file that passes if no warnings were generated, and fails otherwise.
+
+The L<Test2::V0|Test2::V0> version of this is C<use Test2::Plugin::NoWarnings;>. If you want the warnings to be displayed, add arguments C<< echo => 1 >>. B<Note> that this is B<not> part of C<Test2-Suite>, and must be installed separately.
+
+=head2 C<use Test::Warn;>
+
+This is not part of the C<Test-More> distribution. It provides subroutines that test whether a given block of code generates warnings, and if so what those warnings are.
+
+C<Test2-Suite> does not provide any tests specific to warnings. What it does provide is L<Test2::Tools::Warnings|Test2::Tools::Warnings>, which exports subroutines that capture the warnings from a block, or determine whether a block warned or not. It is up to you to apply the desired tests to the captured warnings.
+
+There are several functional differences in the way the two packages handle captured warnings:
+
+=over
+
+=item * L<Test::Warn|Test::Warn> distinguishes between warnings from the C<warn()> built-in and those from C<Carp::carp()>. L<Test2::Tools::Warnings|Test2::Tools::Warnings> does not.
+
+=item * L<Test::Warn|Test::Warn> does string comparisons excluding the line number and file name, if present. As far as I can tell, C<Test2-Suite> provides no such functionality.
+
+=item * L<Test::Warn|Test::Warn> can test whether warnings came from a given L<warnings|warnings/Category Hierarchy> category. As far as I can tell, C<Test2-Suite> provides no such functionality.
+
+=back
+
+If there is a C<Test2::Tools> package that supplies this functionality, I have not identified it. Certainly nothing in my L<Annotated Test2::Tools Index|https://trwyant.github.io/misc/all-perl-test2-tools.html> jumps out at me.
+
+=head2 C<$Test::Builder::Level>
+
+If you want to provide your own test subroutine, C<$Test::Builder::Level> could be used to manipulate how far up the call stack to report the error. For example:
+
+ sub is_fred{
+   my ( $name ) = @_;
+   local $Test::Builder::Level = $Test::Builder::Level + 1;
+   return is $name, 'Fred', "Is the name 'Fred'";
+ }
+ 
+ is_fred( 'Fred' );
+ is_fred( 'Barny' ); # Failure reported on this line, not in sub
+
+L<Test2::Manual::Tooling::TestBuilder|Test2::Manual::Tooling::TestBuilder> notes that this still works, but I have been unable to make it do so without a C<use Test::Builder;>.
+
+The idiomatic way to do this under C<Test2-Suite> is documented in L<Test2::Manual::Tooling::Nesting|Test2::Manual::Tooling::Nesting>:
+
+ sub is_fred {
+   my ( $name ) = @_;
+   my $ctx = context();
+   my $rslt = is $name, 'Fred', "Is the name 'Fred'";
+   $ctx->release();
+   return $rslt;
+ }
+
+The C<$ctx> object takes care of things like nesting depth. Unfortunately, it B<must> be manually released before subroutine exit, or various cleanup actions will not be done, and C<Test2> complains noisily.
+
+Normally, the Perlish implementation would be to put the cleanup in a C<DESTROY()> method on the context object. But all an exception in a C<DESTROY()> method accomplishes is a warning to C<STDERR> and a return from the method; no exception appears outside C<DESTROY()>. This breaks L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>.
+
+This breakage also happens if you try to simplify matters on your own by delegating the C<< $ctx->release() >> call to something like a L<Scope::Guard|Scope::Guard> object. So do not do that. At the very least you will disable L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail> within the supposedly-guarded scope.
+
+=head2 C<< Test::More->builder() >>
+
+This static method gives access to the L<Test::Builder|Test::Builder> singleton that underlies L<Test::More|Test::More>. C<Test-Suite> is not based on L<Test::Builder|Test::Builder>, so this call must be converted by determining B<why> access to the singleton was desired, and figuring out how to do the corresponding thing under C<Test2-Suite>.
+
+=head2 Name Collisions
+
+By default, L<Test2::V0|Test2::V0> exports a B<bunch> of subroutines. If you have written your own test support subroutines, name collisions are possible. Fortunately, you can prevent L<Test2::V0|Test2::V0> from exporting individual subroutines by prefixing an exclamation mark to the subroutine name.
+
+For example, L<Test2::V0|Test2::V0> exports a subroutine called C<check()>. If you already have a support routine by that name, you can simply
+
+ use Test2::V0 qw{ !check };
+
+Of course, if it turns out later that you need that functionality, you will need to do something else -- probably rename your support routine, or call the C<Test2-Suite> version as C<Test2::Tools::Compare::check()>.
+
+=head1 IMPLEMENTATION
+
+As mentioned at the beginning, this article was generated in the course of trying to automate the conversion of L<Test::More|Test::More> scripts to use L<Test2::V0|Test2::V0>. The automation is based on L<PPI|PPI>, and has been fleshed out by running it against some of my more idiosyncratic modules. B<Note>, though, that a passing test is not the same as a correctly-converted test. I<Caveat coder.>
+
+The code, such as it is, is at L<https://github.com/trwyant/perl-App-Test-More-To-Test2-V0>. B<Note> that the more I potter with it the more troublesome cases I find. I B<highly recommend> that anyone who uses this code B<only> run it against a backed-up distribution or a clean Git (or other code management system) directory.
+
+A few notes on the implementation are in order. These are organized in the same order as the L<CONVERSION|/CONVERSION> notes, but I have generally not commented when the conversion seemed straightforward.
+
+=head2 Converting C<BAIL_OUT()>
+
+An option, C<--bail-on-fail>, determines which alternative is used. If this option is asserted, calls to C<BAIL_OUT()> are removed, and a C<use Test2::Plugin::BailOnFail;> is added. If not (the default), subroutine C<BAIL_OUT()> is added.
+
+=head2 Converting C<load_module()>
+
+An option, C<--load-module>, determines which alternative is used. If this option is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<load_module()> subroutine. If not (the default), C<load_module ...> is converted to C<ok lives { require ... }>.
+
+=head2 Converting C<use_module()>
+
+Option C<--load-module> also controls the conversion of this subroutine. If it is asserted, it is handled the same way as L<load_module()|/Converting load_module()>, above. If it is negated, it is converted to C<use ok ...>, and any trailing C< or ...> is made into a diagnostic, since C<use ok ... or ...> is a syntax error.
+
+=head2 Converting C<explain()>
+
+An option, C<--explain>, determines which module and subroutine are used to replace L<Test::More::explain()|Test::More>. The value of the option is C<module=subroutine>.
+
+The default is C<--explain Test2::Tools::Explain=explain>.
+
+=head2 Converting C<use Test::Warn>
+
+Because I see no way to automate this, all the script does is to insert a diagnostic that notes the need for hand conversion and gives the file and line number.
+
+=head2 Converting C<$Test::Builder::Level>
+
+Converting this to idiomatic C<Test2-Suite> code involves identifying all code paths that result in an exit from the containing subroutine or block. I suppose this would be possible, but extremely laborious. So all the script does is to explicitly load L<Test::Builder|Test::Builder>.
+
+=head2 Converting C<< Test::More->builder() >>
+
+Because I see no way to automate this, all the script does is to insert a diagnostic that notes the need for hand conversion and gives the file and line number.
+
+=head2 Handling Name Collisions
+
+Ideally this would be done by identifying the subroutines exported by L<Test2::V0|Test2::V0>, comparing them to the subroutines defined in or imported into the test being converted, and telling L<Test2::V0|Test2::V0> not to export the conflicting names.
+
+For an initial implementation, though, I found identifying all imports from all modules too daunting. I rationalized this by observing the limitations of static analysis in the presence of things like computed import lists and C<use if>.
+
+Instead, the current implementation provides some options to spoon-feed collision detection. The C<--support-module> option names a support module whose default exports are examined for collisions. The C<--lib> option provides extra places to look for support modules. And the C<--support-sub> option allows individual subroutines to be specified.
+
+But it might be easier to just ignore this functionality and fix collisions by hand if they occur.
+
+=head1 CONCLUSION
+
+I conclude that a static analysis can go a fair way toward converting a L<Test::More|Test::More> script to L<Test2::V0|Test2::V0>. But there are cases where I can not see an implementation, other than to recognize those cases and mark them for hand conversion.
+
+The real unknown is: what have I missed? There are many testing packages built on top of L<Test::Builder|Test::Builder> or L<Test::More|Test::More>. L<Test2::V0|Test2::V0> incorporates the functionality of some of these, but by no means all.

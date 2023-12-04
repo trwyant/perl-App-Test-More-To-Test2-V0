@@ -56,9 +56,9 @@ This is not in C<Test2-Suite>, the explanation being that if the C<use ...> fail
 
 If you really want this, L<Test2::Manual::Testing::Migrating|Test2::Manual::Testing::Migrating> recommends replacing C<use_ok ...> with C<use ok ...>. L<ok|ok> is a test based directly on L<Test::Builder|Test::Builder>, but which runs at compile time, unlike C<use_ok()> (unless you enclose it in a C<BEGIN {}> block). My experimentation says that if C<use ok ...> fails and L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail> is in effect, the entire test suite is aborted, but noisily.
 
-B<Note> that changing C<use_ok ...> to C<use ok ...> changes the order of execution, because a C<use ...> is done at compile time. If you want to use C<plan()> with C<use ok ...>, you will need to code it as C<BEGIN { plan ...; }>.
+B<Note> that changing C<use_ok ...> to C<use ok ...> changes the order of execution, because a C<use ...> is done at compile time. If you want to use C<plan()> or C<skip_all()> with C<use ok ...>, you will need to call it inside a C<BEGIN {}> block,
 
-B<Note also> that while C<use_ok( ... ) or ...> is perfectly legitimate Perl, C<use ok ... or ...> is a syntax error. If the code was in fact C<use_ok( ... ) or BAIL_OUT ...;> you will need to either abandon the C<or ...>, convert the module to L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>, (see L<C<BAIL_OUT()>|/BAIL_OUT()>, above) or convert C<use_ok()> as though it were L<C<require_ok()>|/require_ok()> (see below).
+B<Note also> that while C<use_ok( ... ) or ...> is perfectly legitimate Perl, C<use ok ... or ...> is a syntax error. If the code was in fact C<use_ok( ... ) or BAIL_OUT ...;> you will need to either abandon the C<or ...> and convert the module to L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>, (see L<C<BAIL_OUT()>|/BAIL_OUT()>, above), or convert C<use_ok()> as though it were L<C<require_ok()>|/require_ok()> (see below).
 
 Another way to deal with this, which avoids the above caveats, is to C<use Test2::Tools::LoadModule ':more';>. This imports a C<use_ok()> which should be pretty compatible with the L<Test::More> version of that test. Disclaimer: I am the author of L<Test2::Tools::LoadModule|Test2::Tools::LoadModule>, and therefore also the complaint department if compatibility problems are found.
 
@@ -101,19 +101,25 @@ This is not part of the C<Test-More> distribution. It provides subroutines that 
 
 C<Test2-Suite> does not provide any tests specific to warnings. What it does provide is L<Test2::Tools::Warnings|Test2::Tools::Warnings>, which exports subroutines that capture the warnings from a block, or determine whether a block warned or not. It is up to you to apply the desired tests to the captured warnings.
 
-There are several functional differences in the way the two packages handle captured warnings:
+There are several pieces of functionality provided by L<Test::Warn|Test::Warn> that I have not found in Test2-land, either in C<Test2-Suite> itself or in add-on modules. At least, nothing in my L<Annotated Test2::Tools Index|https://trwyant.github.io/misc/all-perl-test2-tools.html> jumps out at me. These are:
 
 =over
 
-=item * L<Test::Warn|Test::Warn> distinguishes between warnings from the C<warn()> built-in and those from C<Carp::carp()>. L<Test2::Tools::Warnings|Test2::Tools::Warnings> does not.
+=item * L<Test::Warn|Test::Warn> distinguishes between warnings from the C<warn()> built-in and those from C<Carp::carp()>.
 
-=item * L<Test::Warn|Test::Warn> does string comparisons excluding the line number and file name, if present. As far as I can tell, C<Test2-Suite> provides no such functionality.
+I believe this would need to be implemented by something like C<warnings()> in L<Test2::Tools::Warnings|Test2::Tools::Warnings>, but with logic in the C<$SIG{__WARN__}> hook to distinguish the source of the warning.
 
-=item * L<Test::Warn|Test::Warn> can test whether warnings came from a given L<warnings|warnings/Category Hierarchy> category. As far as I can tell, C<Test2-Suite> provides no such functionality.
+=item * L<Test::Warn|Test::Warn> does string comparisons excluding the line number and file name, if present.
+
+I believe this could be implemented by a variant on C<match()> in L<Test2::Tools::Compare|Test2::Tools::Compare>. This variant would take a string and incorporate the relevant L<Test::More|Test::More> logic to make the string into a regular expression.
+
+Or, the test author could just use a regular expression in C<match()>.
+
+=item * L<Test::Warn|Test::Warn> can test whether warnings came from a given L<warnings|warnings/Category Hierarchy> category.
+
+This appears to be minimally implemented in L<Test::More|Test::More>. As of L<Test::More|Test::More> 1.302198 (2023-11-30), all the code contains is a regular expression to match C<Wide character in \w+\b>, associated with category C<utf8>. The L<diagnostics|diagnostics> module B<might> be a starting point for a more general implementation. Or not. The fact that there is so little here suggests to me that there is not much demand for this functionality.
 
 =back
-
-If there is a C<Test2::Tools> package that supplies this functionality, I have not identified it. Certainly nothing in my L<Annotated Test2::Tools Index|https://trwyant.github.io/misc/all-perl-test2-tools.html> jumps out at me.
 
 =head2 C<$Test::Builder::Level>
 
@@ -172,13 +178,13 @@ A few notes on the implementation are in order. These are organized in the same 
 
 An option, C<--bail-on-fail>, determines which alternative is used. If this option is asserted, calls to C<BAIL_OUT()> are removed, and a C<use Test2::Plugin::BailOnFail;> is added. If not (the default), subroutine C<BAIL_OUT()> is added.
 
-=head2 Converting C<load_module()>
+=head2 Converting C<use_ok()>
 
-An option, C<--load-module>, determines which alternative is used. If this option is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<load_module()> subroutine. If not (the default), C<load_module ...> is converted to C<ok lives { require ... }>.
+An option, C<--load-module>, determines which alternative is used. If it is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<use_ok()> subroutine. If it is negated, C<use_ok()> is converted to C<use ok ...>, and any trailing C< or ...> is made into a diagnostic, since C<use ok ... or ...> is a syntax error.
 
-=head2 Converting C<use_module()>
+=head2 Converting C<require_ok()>
 
-Option C<--load-module> also controls the conversion of this subroutine. If it is asserted, it is handled the same way as L<load_module()|/Converting load_module()>, above. If it is negated, it is converted to C<use ok ...>, and any trailing C< or ...> is made into a diagnostic, since C<use ok ... or ...> is a syntax error.
+Option C<--load-module> also controls the conversion of this subroutine. If it is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<require_ok()> subroutine. If not (the default), C<require_ok ...> is converted to C<ok lives { require ... }>.
 
 =head2 Converting C<explain()>
 

@@ -25,6 +25,16 @@ note 'The answer is ', explain( $answer );
 done_testing;
 EOD
 
+use constant REQUIRE_OK         => \<<'EOD';
+use strict;
+use warnings;
+use Test::More;
+
+require_ok 'Test2::V0';
+
+done_testing;
+EOD
+
 {
     my $app = CLASS->new();
     my $warning;
@@ -255,15 +265,7 @@ EOD
     like $warning->[1], qr/\AAdded 'use ok' in\b/,
         q<Correct 'use ok' warning>;
 
-    is $app->convert( \<<'EOD' )->content(),
-use strict;
-use warnings;
-use Test::More;
-
-require_ok 'Test2::V0';
-
-done_testing;
-EOD
+    is $app->convert( REQUIRE_OK )->content(),
         slurp( 'xt/author/test2_require_ok.t' ),
         'Convert require_ok() using ok lives { require ... }';
 
@@ -666,6 +668,39 @@ EOD
 
     like $warning, qr/\AAdded 'use Test2::Tools::Explain' in\b/,
         q<Correct 'use Test2::Tools::Explain' warning>;
+}
+
+{
+    my $app = CLASS->new(
+        require_to_use  => 1,
+    );
+    my $warning;
+
+    $warning = warning {
+        is $app->convert( REQUIRE_OK )->content(),
+            slurp( 'xt/author/test2_use_ok_ok.t' ),
+            q/Convert require_ok() using 'use ok .../;
+    };
+
+    like $warning, qr/\AAdded 'use ok' in \b/,
+        q/Correct 'require_ok()' warning under require_to_use => 1/;
+}
+
+{
+    my $app = CLASS->new(
+        load_module     => 1,
+        require_to_use  => 1,
+    );
+    my $warning;
+
+    $warning = warning {
+        is $app->convert( REQUIRE_OK )->content(),
+            slurp( 'xt/author/test2_use_ok_load_module.t' ),
+            q/Convert require_ok() using Test2::Tools::LoadModule/;
+    };
+
+    like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in \b/,
+        q/Correct 'require_ok()' warning under require_to_use => 1/;
 }
 
 done_testing;

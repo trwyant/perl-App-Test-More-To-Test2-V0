@@ -167,7 +167,9 @@ sub my_get_options {
 	    bail_on_fail|bail-on-fail!
 	    explain=s
 	    lib=s@
-	    load_module|load-module! slurp! suffix=s
+	    load_module|load-module!
+	    require_to_use|require-to-use!
+	    slurp! suffix=s
 	    support_module|support-module=s@
 	    support_sub|support-sub=s@
 	    uncomment_use|uncomment-use!
@@ -290,6 +292,19 @@ exists and is not C<''>. This file need not exist.
 If not specified either way, the default is F<test-more-to-test2-v0.cfg>
 under Windows or VMS, or F<.test-more-to-test2-v0rc> under any other
 operating system. This file need not exist.
+
+=head2 --require-to-use
+
+If this Boolean option is true, C<require_ok()> is converted as though
+it were C<use_ok()>.
+
+This option is orghogonal to L<--load-module|/--load-module>. That is,
+if L<--load-module|/--load-module> is false, C<require_ok ...> is
+converted to C<use ok ...>. If L<--load-module|/--load-module> is true,
+C<require_ok()> is conveted to C<use_ok()>, and
+C<use Test2::Tools::LoadModule ':more';> is added.
+
+The default is C<--no-require-to-use>.
 
 =head2 --slurp
 

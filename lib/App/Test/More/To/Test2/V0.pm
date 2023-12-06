@@ -38,6 +38,7 @@ sub new {
 	lib		=> delete $arg{lib} || [],
 	load_module	=> delete $arg{load_module},
 	quiet		=> delete $arg{quiet},
+	require_to_use	=> delete $arg{require_to_use},
 	suffix		=> delete $arg{suffix},
 	support_module	=> delete $arg{support_module} || [],
 	support_sub	=> delete $arg{support_sub} || [],
@@ -316,10 +317,18 @@ sub _convert_sub__named__require_ok {
     my ( $self, $from ) = @_;	# $to unused
 
     if ( $self->{load_module} ) {
+	if ( $self->{require_to_use} ) {
+	    $from->{ele}->replace(
+		$self->_make_token( 'PPI::Token::Word', 'use_ok' ),
+	    );
+	}
 	$self->{_cvt}{do_once}{load_module} ||=
 	    \&_convert_sub__fixup__load_module_ok;
 	return 1;
     }
+
+    $self->{require_to_use}
+	and goto &_convert_sub__named__use_ok;
 
     my @arg = PPIx::Utils::parse_arg_list( $from->{ele} );
 
@@ -1077,11 +1086,27 @@ If this Boolean argument is true, C<use_ok( ... )> will be implemented
 by C<Test2::Tools::LoadModule::use_ok()>. Otherwise it will be converted
 to C<use ok ( ... )>.
 
+This argument is orthogonal to L<require_to_use|/require_to_use>. See
+below for details.
+
 The default is false.
 
 =item quiet
 
 If this Boolean argument is true some warnings will be suppressed.
+
+The default is false.
+
+=item require_to_use
+
+If this Boolean argument is true, C<require_ok()> is converted as
+though it were C<use_ok()>.
+
+This argument is orthogonal to L<load_module|/load_module>. That is, if
+L<load_module|/load_module> is false, C<require_ok ...> is converted to
+C<use ok ...>. If L<load_module|/load_module> is true, C<require_ok()>
+is converted to C<use_ok()>, and C<use Test2::Tools::LoadModule
+':more';> is added.
 
 The default is false.
 

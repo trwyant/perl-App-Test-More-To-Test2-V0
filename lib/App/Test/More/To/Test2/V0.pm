@@ -182,22 +182,64 @@ sub _convert_sub {
 	}
     }
 
-    $_->( $self ) for values %{ $self->{_cvt}{do_once} };
-
     return $rslt;
 }
 
-sub _convert_sub__fixup__load_module_ok {
+sub _convert__do_once {
+    my ( $self, $thing ) = @_;
+    $self->{_cvt}{do_once}{$thing}++
+	and return 0;
+    my $method = "_convert__do_once__$thing";
+    return $self->$method();
+}
+
+sub _convert__do_once__BAIL_OUT {
     my ( $self ) = @_;
-    return $self->_add_use(
+
+    if ( $self->{bail_on_fail} ) {
+	$self->_add_use( 'Test2::Plugin::BailOnFail' );
+    } else {
+	$self->_add_statement(
+	    'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
+	);
+    }
+
+    return 1;
+}
+
+sub _convert__do_once__explain {
+    my ( $self ) = @_;
+    $self->_add_use(
+	$self->{_explain}{pkg},
+	@{ $self->{_explain}{import} },
+    );
+    return 1;
+}
+
+sub _convert__do_once__load_module {
+    my ( $self ) = @_;
+    $self->_add_use(
 	'Test2::Tools::LoadModule', q<':more'>,
     );
+    return 1;
+}
+
+sub _convert__do_once__use_ok {
+    my ( $self ) = @_;
+    $self->__carp(
+	"Added 'use ok'",
+    );
+    return 0;
+}
+
+sub _convert__do_once__test_builder_level {
+    my ( $self ) = @_;
+    $self->_add_use( 'Test::Builder' );
+    return 1;
 }
 
 sub _convert_sub__named__BAIL_OUT {
     my ( $self, $from ) = @_;
-
-    my $rslt;
 
     if ( $self->{bail_on_fail} ) {
 
@@ -215,18 +257,9 @@ sub _convert_sub__named__BAIL_OUT {
 	    $ele = $self->_delete_elements( $ele, 1 );
 	}
 
-	$rslt = sub { return $_[0]->_add_use( 'Test2::Plugin::BailOnFail' ) };
-    } else {
-	$rslt = sub {
-	    return $_[0]->_add_statement(
-		'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
-	    );
-	};
     }
 
-    $self->{_cvt}{do_once}{BAIL_OUT} ||= $rslt;
-
-    return 1;
+    return 1 + $self->_convert__do_once( 'BAIL_OUT' );
 }
 
 sub _convert_sub__named__builder {
@@ -249,14 +282,8 @@ sub _convert_sub__named__explain {
 	    or push @import, "'$self->{_explain}{name}'";
 	\@import;
     };
-    $self->{_cvt}{do_once}{explain} ||= sub {
-	return $self->_add_use(
-	    $self->{_explain}{pkg},
-	    @{ $self->{_explain}{import} },
-	);
-    };
 
-    return 1;
+    return 1 + $self->_convert__do_once( 'explain' );
 }
 
 sub _convert_sub__named__isa_ok {
@@ -317,14 +344,14 @@ sub _convert_sub__named__require_ok {
     my ( $self, $from ) = @_;	# $to unused
 
     if ( $self->{load_module} ) {
+	my $rslt = 0;
 	if ( $self->{require_to_use} ) {
 	    $from->{ele}->replace(
 		$self->_make_token( 'PPI::Token::Word', 'use_ok' ),
 	    );
+	    $rslt++;
 	}
-	$self->{_cvt}{do_once}{load_module} ||=
-	    \&_convert_sub__fixup__load_module_ok;
-	return 1;
+	return $rslt + $self->_convert__do_once( 'load_module' );
     }
 
     $self->{require_to_use}
@@ -387,9 +414,7 @@ sub _convert_sub__named__use_ok {
 
     # FIXME duplicated from require_ok
     if ( $self->{load_module} ) {
-	$self->{_cvt}{do_once}{load_module} ||=
-	    \&_convert_sub__fixup__load_module_ok;
-	return 1;
+	return 1 + $self->_convert__do_once( 'load_module' );
     }
 
     # NOTE: Most of the mess below is because someone may have written
@@ -443,13 +468,7 @@ sub _convert_sub__named__use_ok {
 
     $from_stmt->replace( $to_stmt );
 
-    $self->{_cvt}{do_once}{use_ok} ||= sub {
-	$self->__carp(
-	    "Added 'use ok'",
-	);
-    };
-
-    return 1;
+    return 1 + $self->_convert__do_once( 'use_ok' );
 }
 
 sub _convert_sub__rename {
@@ -495,13 +514,7 @@ sub _convert_sub__symbol__TODO {
 
 sub _convert_sub__symbol__test_builder_level {
     my ( $self ) = @_;	# $from, $to unused
-
-    $self->{_cvt}{do_once}{'Test::Builder::Level'} ||= sub {
-	my ( $self ) = @_;
-	return $self->_add_use( 'Test::Builder' );
-    };
-
-    return 1;
+    return $self->_convert__do_once( 'test_builder_level' );
 }
 
 sub _convert_use {

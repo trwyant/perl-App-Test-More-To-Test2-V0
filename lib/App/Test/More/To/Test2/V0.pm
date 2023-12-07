@@ -1105,9 +1105,23 @@ C<@INC>.
 
 =item load_module
 
-If this Boolean argument is true, C<use_ok( ... )> will be implemented
-by C<Test2::Tools::LoadModule::use_ok()>. Otherwise it will be converted
-to C<use ok ( ... )>.
+This Boolean argument affects the conversion of C<require_ok()> and
+C<use_ok()>.
+
+If this argument is false, C<use_ok ...> is converted to C<use ok ...>,
+and C<require_ok ...> is converted to
+
+ ok lives { require $module }, "require $module" or diag <<"EOD"
+     Tried to require '$module'
+     Error: \$@
+ EOD
+
+with the proviso that if the module name can be determined to be a
+bareword, that form of the code will be used. If anything but C<;> or
+C<or> follows C<require_ok()>, the diagnostic is omitted.
+
+If this argument is true, C<use_ok()> and C<require_ok()> are not
+modified, but C<use Test2::Tools::LoadModule ':more';> will be added.
 
 This argument is orthogonal to L<require_to_use|/require_to_use>. See
 below for details.
@@ -1124,6 +1138,10 @@ The default is false.
 
 If this Boolean argument is true, C<require_ok()> is converted as
 though it were C<use_ok()>.
+
+This is not directly related to converting L<Test::More|Test::More> to
+L<Test2::V0|Test2::V0>. It is intended as a convenience for those who
+find the default conversion of C<require_ok()> too verbose.
 
 This argument is orthogonal to L<load_module|/load_module>. That is, if
 L<load_module|/load_module> is false, C<require_ok ...> is converted to

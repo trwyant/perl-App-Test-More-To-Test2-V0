@@ -189,8 +189,10 @@ sub _convert__do_once {
     my ( $self, $thing ) = @_;
     $self->{_cvt}{do_once}{$thing}++
 	and return 0;
-    my $method = "_convert__do_once__$thing";
-    return $self->$method();
+    my $code = $self->can( "_convert__do_once__$thing" ) || sub {
+	$_[0]->__confess( "Method _convert__do_once__$thing not found" );
+    };
+    return $code->( $self );
 }
 
 sub _convert__do_once__BAIL_OUT {

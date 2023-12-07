@@ -506,6 +506,36 @@ EOD
     like $warning, qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
         'Correct Test2::Plugin::BailOnFail warning';
 
+    $warning = warnings {
+        is $app->convert( \<<'EOD' )->content(),
+use strict;
+use warnings;
+use Test::More;
+
+use_ok 'Test2::V0' or BAIL_OUT();
+
+done_testing;
+EOD
+            <<'EOD',
+use strict;
+use warnings;
+use Test2::V0;
+use Test2::Plugin::BailOnFail;
+
+use ok 'Test2::V0';
+
+done_testing;
+EOD
+            q/Convert 'use_ok or BAIL_OUT()' using 'use ok' and BailOnFail/;
+    };
+
+    is scalar @{ $warning }, 2, 'Got two warnings';
+
+    like $warning->[0], qr/\AAdded 'use ok' in\b/,
+        'Correct use ok warning';
+
+    like $warning->[1], qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+        'Correct Test2::Plugin::BailOnFail warning';
 }
 
 {
@@ -677,6 +707,9 @@ EOD
     my $warning;
 
     $warning = warning {
+
+        $DB::single = 1;
+
         is $app->convert( REQUIRE_OK )->content(),
             slurp( 'xt/author/test2_use_ok_ok.t' ),
             q/Convert require_ok() using 'use ok .../;

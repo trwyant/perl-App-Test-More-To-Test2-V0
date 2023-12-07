@@ -412,6 +412,8 @@ END_OF_DATA
 sub _convert_sub__named__use_ok {
     my ( $self, $from ) = @_;	# $to unused
 
+    $DB::single = 1;
+
     # FIXME duplicated from require_ok
     if ( $self->{load_module} ) {
 	return 1 + $self->_convert__do_once( 'load_module' );
@@ -425,6 +427,7 @@ sub _convert_sub__named__use_ok {
     # already queued by PPI, and deleting it does not change this. So we
     # need machinery to cause it to be ignored when it is encountered.
     my @to_text;
+    my $bail_out;
     my @dele;
     {
 	my $ele = $from->{ele}->statement()->child( 0 );
@@ -440,9 +443,13 @@ sub _convert_sub__named__use_ok {
 		and $ele->content() eq ';'
 		and last;
 	    push @dele, $ele->content();
-	    $ele->isa( 'PPI::Token::Word' )
-		and $ele->content() eq 'BAIL_OUT'
-		and $self->{_cvt}{ignore}{ Scalar::Util::refaddr( $ele ) } = 1;
+	    if (
+		$ele->isa( 'PPI::Token::Word' ) &&
+		$ele->content() eq 'BAIL_OUT'
+	    ) {
+		$self->{_cvt}{ignore}{ Scalar::Util::refaddr( $ele ) } = 1;
+		$bail_out = $self->{bail_on_fail};
+	    }
 	    $ele = $ele->next_sibling();
 	}
 	if ( @dele ) {
@@ -452,7 +459,7 @@ sub _convert_sub__named__use_ok {
     }
 
     my $from_stmt = $from->{ele}->statement();
-    if ( @dele ) {
+    if ( @dele && ! $bail_out ) {
 	my $dele_text = join '', @dele;
 	$dele_text =~ s/(?=[\\'])/\\/smxg;
 	my $diag_text = " diag 'Deleted \\\'$dele_text\\\' in ', __FILE__, ' line ', __LINE__;";
@@ -468,7 +475,8 @@ sub _convert_sub__named__use_ok {
 
     $from_stmt->replace( $to_stmt );
 
-    return 1 + $self->_convert__do_once( 'use_ok' );
+    return 1 + $self->_convert__do_once( 'use_ok' ) + ( $bail_out ?
+	$self->_convert__do_once( 'BAIL_OUT' ) : 0 );
 }
 
 sub _convert_sub__rename {

@@ -1146,8 +1146,8 @@ find the default conversion of C<require_ok()> too verbose.
 This argument is orthogonal to L<load_module|/load_module>. That is, if
 L<load_module|/load_module> is false, C<require_ok ...> is converted to
 C<use ok ...>. If L<load_module|/load_module> is true, C<require_ok()>
-is converted to C<use_ok()>, and C<use Test2::Tools::LoadModule
-':more';> is added.
+is converted to C<use_ok()>, and
+C<use Test2::Tools::LoadModule ':more';> is added.
 
 The default is false.
 
@@ -1169,7 +1169,7 @@ up (by renaming) before being rewritten. The name of the backup will be
 the name of the original file with the suffix appended.
 
 B<Note> that a leading dot is B<not> implied; if you want F<t/foo.t>
-backed up to F<t/foo.t.bak>, you must specify C<--suffix .bak>.
+backed up to F<t/foo.t.bak>, you must specify C<< suffix => '.bak' >>.
 
 =item uncomment_use
 
@@ -1271,11 +1271,11 @@ All calls to C<is_deeply()> are changed to calls to C<is()>.
 
 The L<Test::More|Test::More> and L<Test2::V0|Test2::V0> versions of this
 test are B<almost> identical. The difference is that the
-L<Test::More|Test::More> version takes two arguments and silently
-ignores extras, but the L<Test2::V0|Test2::V0> version takes two or
-more. This means if L<Test::More::isa_ok(...)|Test::More> is mistakenly
-called with a third argument containing (say) the intended test name,
-the mistake may not be found until the conversion is done.
+L<Test::More|Test::More> version uses its third argument as an alternate
+class name to use in the test name, but the L<Test2::V0|Test2::V0>
+version takes multiple class names. This means if
+L<Test::More::isa_ok(...)|Test::More> is called with a third argument,
+conversion will probably result in test failures.
 
 This tool eliminates all arguments after the second.
 

@@ -279,7 +279,7 @@ C<or> follows C<require_ok()>, the diagnostic is omitted.
 This option is orthogonal to C<--require-to-use|/--require-to-use>. See
 below for details.
 
-The default is C<-no-load-module>.
+The default is C<--no-load-module>.
 
 =head2 --local-rc
 
@@ -403,13 +403,14 @@ specified.
 
 =head1 RESOURCE FILE
 
-You can configure options using resource files. The name of this
+You can configure options using a resource file. The name of this
 file is F<test-more-to-test2-v0.cfg> under Windows or VMS, or
-F<.test-more-to-test2v0rc> under any other operating system. There are
-actually two of these, a user file in the user's home directory, and a
-local file in the current directory. Configuration in the local file
-takes precedence over the user file, and the command line takes
-precedence over both.
+F<.test-more-to-test2v0rc> under any other operating system.
+
+There are actually two resource files; a user file in the user's home
+directory, and a local file in the current directory. Configuration in
+the local file takes precedence over the user file, and the command line
+takes precedence over both.
 
 A resource file contains command arguments, one per line. Blank
 lines and lines whose first non-blank character is C<'#'> will be

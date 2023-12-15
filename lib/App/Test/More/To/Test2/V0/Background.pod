@@ -101,7 +101,7 @@ This is not part of the C<Test-More> distribution. It provides subroutines that 
 
 C<Test2-Suite> does not provide any tests specific to warnings. What it does provide is L<Test2::Tools::Warnings|Test2::Tools::Warnings>, which exports subroutines that capture the warnings from a block, or determine whether a block warned or not. It is up to you to apply the desired tests to the captured warnings.
 
-There are several pieces of functionality provided by L<Test::Warn|Test::Warn> that I have not found in Test2-land, either in C<Test2-Suite> itself or in add-on modules. At least, nothing in my L<Annotated Test2::Tools Index|https://trwyant.github.io/misc/all-perl-test2-tools.html> jumps out at me. These are:
+There are several functions provided by L<Test::Warn|Test::Warn> that I have not found in Test2-land, either in C<Test2-Suite> itself or in add-on modules. At least, nothing in my L<Annotated Test2::Tools Index|https://trwyant.github.io/misc/all-perl-test2-tools.html> jumps out at me. The missing functions are:
 
 =over
 

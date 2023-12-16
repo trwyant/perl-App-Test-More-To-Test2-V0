@@ -200,10 +200,6 @@ sub _convert__do_once__BAIL_OUT {
 
     if ( $self->{bail_on_fail} ) {
 	$self->_add_use( 'Test2::Plugin::BailOnFail' );
-    } else {
-	$self->_add_statement(
-	    'sub BAIL_OUT { Test2::API::context()->bail( @_ ) }',
-	);
     }
 
     return 1;
@@ -259,6 +255,8 @@ sub _convert_sub__named__BAIL_OUT {
 	    $ele = $self->_delete_elements( $ele, 1 );
 	}
 
+    } else {
+	$self->_convert_sub__rename( $from, { name => 'bail_out' } );
     }
 
     return 1 + $self->_convert__do_once( 'BAIL_OUT' );
@@ -1068,7 +1066,7 @@ takes the following named arguments:
 If this Boolean argument is true, C<BAIL_OUT()> calls will be
 removed, and C<use Test2::Tools::BailOnFail;> will be added.
 
-Otherwise C<< sub BAIL_OUT { context()->bail( @_ ) >> will be added.
+Otherwise C<BAIL_OUT ...> will be converted to C<bail_out ...>.
 
 The default is false.
 
@@ -1248,10 +1246,7 @@ abandoned, not just those that originally called C<BAIL_OUT()> on
 failure.
 
 If the L<bail_on_fail|/bail_on_fail> attribute is false or omitted,
-
- sub BAIL_OUT { context()->bail( @_ ) }
-
-will be added.
+C<BAIL_OUT ...> will be converted to C<bail_out ...>.
 
 =item builder()
 

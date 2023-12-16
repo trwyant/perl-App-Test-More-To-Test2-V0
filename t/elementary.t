@@ -299,10 +299,8 @@ use strict;
 use warnings;
 use Test2::V0;
 
-sub BAIL_OUT { Test2::API::context()->bail( @_ ) }
-
 is foo(), 'bar'
-    or BAIL_OUT 'Eject! Eject!';
+    or bail_out 'Eject! Eject!';
 
 done_testing;
 EOD

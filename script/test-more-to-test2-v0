@@ -221,8 +221,8 @@ test-more-to-test2-v0 - Convert Test::More tests to Test2::V0
 
 If this Boolean option is asserted the script removes calls to
 C<BAIL_OUT()>, and installs
-L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>. Otherwise it
-just installs its own C<BAIL_OUT()> subroutine.
+L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>. Otherwise
+C<BAIL_OUT ...> is converted to C<bail_out ...>.
 
 The default is C<-no-bail-on-fail>.
 

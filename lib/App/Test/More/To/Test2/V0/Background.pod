@@ -8,6 +8,8 @@ On September 21 2023 it was announced on the Perl 5 Porters (P5P) mailing list t
 
 I decided to look into the feasibility of such a script. The management summary is that it is possible to automate B<most> of the work, but there are significant cases which will need to be converted by hand.
 
+This document is concerned with the mechanics of the conversion. A good introduction to C<Test2-Suite> is found in the L<December 15 2023 Perl Advent Calendar|https://perladvent.org/2023/2023-12-15.html>.
+
 =head1 REQUIREMENTS
 
 As of C<Test2-Suite> version C<0.000159> dated 2023-10-25, an explicit C<use 5.008001;> is specified in F<Makefile.PL>, though I understand that Unicode support was not really in place until about 5.8.4.
@@ -42,13 +44,11 @@ C<Test2-Suite> replaces this with C<my $TODO = todo $reason;>. The name of the v
 
 =head2 C<BAIL_OUT()>
 
-C<Test2-Suite> does not supply a C<BAIL_OUT()> subroutine. Instead, you are encouraged to C<use Test2::Plugin::BailOnFail;> which bails out on B<any> test failure in the test file. Because of the way I organize my tests I actually prefer this over writing something like C<... or BAIL_OUT;> not only because it is less verbose but because I may (read "will") forget to add C<or BAIL_OUT> when I add a new test.
+C<Test2-Suite> does not supplies a C<bail_out()> subroutine which is equivalent to the C<Test-More> C<BAIL_OUT()> subroutine. But you are encouraged to C<use Test2::Plugin::BailOnFail;> which bails out on B<any> test failure in the test file. Because of the way I organize my tests I actually prefer this over writing something like C<... or BAIL_OUT;> not only because it is less verbose but because I may (read "will") forget to add C<or BAIL_OUT> when I add a new test.
 
-But converting a L<Test::More|Test::More> test script to L<Test2::V0|Test2::V0> according to this recommendation involves ripping all these out, and the test scripts may not be organized so that B<any> test failure should cause the entire test suite to be abandoned. In this case, you can provide your own C<BAIL_OUT()>:
+But converting a L<Test::More|Test::More> test script to L<Test2::V0|Test2::V0> according to this recommendation involves ripping all these out, and the test scripts may not be organized so that B<any> test failure should cause the entire test suite to be abandoned.
 
- sub BAIL_OUT {
-   context()->bail( @_ );
- }
+So the minimal conversion is simply to change C<BAIL_OUT> to C<bail_out>.
 
 =head2 C<use_ok()>
 

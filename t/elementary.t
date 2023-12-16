@@ -705,9 +705,6 @@ EOD
     my $warning;
 
     $warning = warning {
-
-        $DB::single = 1;
-
         is $app->convert( REQUIRE_OK )->content(),
             slurp( 'xt/author/test2_use_ok_ok.t' ),
             q/Convert require_ok() using 'use ok .../;

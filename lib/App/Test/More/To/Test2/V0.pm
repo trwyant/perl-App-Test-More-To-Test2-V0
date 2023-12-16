@@ -412,8 +412,6 @@ END_OF_DATA
 sub _convert_sub__named__use_ok {
     my ( $self, $from ) = @_;	# $to unused
 
-    $DB::single = 1;
-
     # FIXME duplicated from require_ok
     if ( $self->{load_module} ) {
 	return 1 + $self->_convert__do_once( 'load_module' );

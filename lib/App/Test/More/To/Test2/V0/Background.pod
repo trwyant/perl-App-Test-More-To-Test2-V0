@@ -174,6 +174,18 @@ The code, such as it is, is at L<https://github.com/trwyant/perl-App-Test-More-T
 
 A few notes on the implementation are in order. These are organized in the same order as the L<CONVERSION|/CONVERSION> notes, but I have generally not commented when the conversion seemed straightforward.
 
+=head2 Converting C<is_deeply()>
+
+The only issue I have come up with here is in support code that mimics the C<Test2-Suite> C<is()> functionality by something like
+
+ if ( ref $_[1] ) { goto &is_deeply } else { goto &is }
+
+The implemented conversion ignores this possibility and simply generates
+
+ if ( ref $_[1] ) { goto &is } else { goto &is }
+
+I would expect the wise user of the implemented conversion to pick this up in a change review.
+
 =head2 Converting C<BAIL_OUT()>
 
 An option, C<--bail-on-fail>, determines which alternative is used. If this option is asserted, calls to C<BAIL_OUT()> are removed, and a C<use Test2::Plugin::BailOnFail;> is added. If not (the default), subroutine C<BAIL_OUT()> is added.

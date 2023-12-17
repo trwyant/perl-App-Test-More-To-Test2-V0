@@ -11,6 +11,10 @@ use File::Temp;
 use Test2::V0 -target => 'App::Test::More::To::Test2::V0';
 use Test2::Plugin::NoWarnings echo => 1;
 
+use lib qw{ inc };
+
+use My::Module::Test qw{ check_for_duplicate_matches };
+
 use constant EXPLAIN_TEST       => \<<'EOD';
 use strict;
 use warnings;
@@ -35,6 +39,15 @@ require_ok 'Test2::V0';
 done_testing;
 EOD
 
+use constant MATCH_ADD_USE_BAIL =>
+    match qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/;
+use constant MATCH_ADD_USE_EXPLAIN      =>
+    match qr/\AAdded 'use Test2::Tools::Explain' in\b/;
+use constant MATCH_ADD_USE_OK   => match qr/\AAdded 'use ok' in\b/;
+
+$ENV{AUTHOR_TEST}
+    and check_for_duplicate_matches;
+
 {
     my $app = CLASS->new();
     my $warning;
@@ -52,7 +65,7 @@ EOD
     };
 
     is $warning, [
-        match qr{\bdoes not use Test::More\b},
+        match qr{\ATest::More not used \(or so I think\) in\b},
     ], 'Correct null conversion warning';
 
     is $app->convert( \<<'EOD' )->content(),
@@ -227,7 +240,7 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+        MATCH_ADD_USE_EXPLAIN,
     ], q<Correct 'use Test2::Tools::Explain' warning>;
 
     $warning = warnings {
@@ -245,7 +258,7 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use ok' in\b/,
+        MATCH_ADD_USE_OK,
     ], q<Correct 'use ok' warning>;
 
     $warning = warnings {
@@ -264,7 +277,7 @@ EOD
 
     is $warning, [
         match qr/\ADeleted ' or BAIL_OUT' after 'use ok \.\.\.'/,
-        match qr/\AAdded 'use ok' in\b/,
+        MATCH_ADD_USE_OK
     ], q/Correct use_ok() warnings/;
 
     is $app->convert( REQUIRE_OK )->content(),
@@ -487,7 +500,7 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+        MATCH_ADD_USE_BAIL,
     ], 'Correct Test2::Plugin::BailOnFail warning';
 
     $warning = warnings {
@@ -506,7 +519,7 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+        MATCH_ADD_USE_BAIL,
     ], 'Correct Test2::Plugin::BailOnFail warning';
 
     $warning = warnings {
@@ -533,8 +546,8 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use ok' in\b/,
-        match qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+        MATCH_ADD_USE_OK, 
+        MATCH_ADD_USE_BAIL,
     ], q/Correct warnings for 'use ok or BAIL_OUT'/;
 }
 
@@ -689,7 +702,7 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+        MATCH_ADD_USE_EXPLAIN,
     ], q<Correct 'use Test2::Tools::Explain' warning>;
 
     $warning = warnings {
@@ -711,7 +724,7 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+        MATCH_ADD_USE_EXPLAIN,
     ], q<Correct 'use Test2::Tools::Explain' warning>;
 }
 
@@ -728,7 +741,7 @@ EOD
     };
 
     is $warning, [
-        match qr/\AAdded 'use ok' in \b/,
+        MATCH_ADD_USE_OK,
     ], q/Correct 'require_ok()' warning under require_to_use => 1/;
 }
 

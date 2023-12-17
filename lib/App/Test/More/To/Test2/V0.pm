@@ -83,7 +83,7 @@ sub convert {
     $self->{_cvt}{modified} = $self->_convert_use()
 	    + $self->_convert_sub()
 	or $self->{quiet}
-	or $self->__carp( "$file does not use Test::More (or so I think)" );
+	or $self->__carp( 'Test::More not used (or so I think)' );
 
     if ( $self->{_cvt}{modified} && ! ref $file && ! $self->{dry_run} ) {
 

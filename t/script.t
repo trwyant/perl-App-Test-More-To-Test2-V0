@@ -8,6 +8,13 @@ use warnings;
 use File::Spec;
 use Test2::V0;
 
+use lib qw{ inc };
+
+use My::Module::Test qw{ check_for_duplicate_matches };
+
+$ENV{AUTHOR_TEST}
+    and check_for_duplicate_matches;
+
 use constant DEVNULL	=> File::Spec->devnull();
 
 ok lives {
@@ -83,7 +90,7 @@ EOD
 	bail_on_fail	=> 1,
 	dry_run		=> 1,
 	uncomment_use	=> 1,
-	_want_files	=> [ qw{ t/basic.t t/elementary.t t/script.t } ],
+	_want_files	=> [ qw{ t/basic.t t/elementary.t t/script.t inc/My/Module/Test.pm } ],
     }, 'Got expected script object';
 
     my $warnings;
@@ -94,13 +101,8 @@ EOD
     }, 'Converted files successfully'
 	or diag $@;
 
-    $warnings ||= [];	# In case we died
-    is scalar @{ $warnings }, 3, 'Got three warnings';
-
     is $warnings, [
-	match qr|\At/basic\.t does not use Test::More \(or so I think\)|,
-	match qr|\At/elementary\.t does not use Test::More \(or so I think\)|,
-	match qr|\At/script\.t does not use Test::More \(or so I think\)|,
+	( match qr/Test::More not used \(or so I think\) in\b/ ) x 4,
     ], 'Got expected warnings';
 }
 

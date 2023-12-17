@@ -39,7 +39,7 @@ EOD
     my $app = CLASS->new();
     my $warning;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -51,8 +51,9 @@ EOD
         'Null conversion';
     };
 
-    like $warning, qr{\bdoes not use Test::More\b},
-        'Correct null conversion warning';
+    is $warning, [
+        match qr{\bdoes not use Test::More\b},
+    ], 'Correct null conversion warning';
 
     is $app->convert( \<<'EOD' )->content(),
 use strict;
@@ -219,16 +220,17 @@ EOD
         slurp( 'xt/author/test2_goto.t' ),
         q/Convert 'goto &is_deeply' to 'goto &is'/;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain.t' ),
             'Convert explain()';
     };
 
-    like $warning, qr/\AAdded 'use Test2::Tools::Explain' in\b/,
-        q<Correct 'use Test2::Tools::Explain' warning>;
+    is $warning, [
+        match qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+    ], q<Correct 'use Test2::Tools::Explain' warning>;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -242,8 +244,9 @@ EOD
             'Convert use_ok() using use ok ...';
     };
 
-    like $warning, qr/\AAdded 'use ok' in\b/,
-        q<Correct 'use ok' warning>;
+    is $warning, [
+        match qr/\AAdded 'use ok' in\b/,
+    ], q<Correct 'use ok' warning>;
 
     $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
@@ -259,11 +262,10 @@ EOD
             'Convert use_ok() using use ok ...';
     };
 
-    like $warning->[0], qr/\ADeleted ' or BAIL_OUT' after 'use ok \.\.\.'/,
-        q<Correct "Deleted ' or ...'" warning>;
-
-    like $warning->[1], qr/\AAdded 'use ok' in\b/,
-        q<Correct 'use ok' warning>;
+    is $warning, [
+        match qr/\ADeleted ' or BAIL_OUT' after 'use ok \.\.\.'/,
+        match qr/\AAdded 'use ok' in\b/,
+    ], q/Correct use_ok() warnings/;
 
     is $app->convert( REQUIRE_OK )->content(),
         slurp( 'xt/author/test2_require_ok.t' ),
@@ -322,7 +324,7 @@ EOD
         slurp( 'xt/author/test2_todo.t' ),
        'Convert $TODO';
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -342,11 +344,11 @@ EOD
         'Warn on Test::More->builder()';
     };
 
-    like $warning,
-        qr{\bTest::More->builder\(\); @{[ CLASS->CONVERT_BY_HAND ]}},
-        'Correct Test::More->builder() warning';
+    is $warning, [
+        match qr{\bTest::More->builder\(\); @{[ CLASS->CONVERT_BY_HAND ]}},
+    ], 'Correct Test::More->builder() warning';
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -366,9 +368,9 @@ EOD
             'Handle $Test::Builder::Level';
     };
 
-    like $warning,
-        qr{\bAdded 'use Test::Builder' in\b},
-        'Correct $Test::Builder::Level warning';
+    is $warning, [
+        match qr{\bAdded 'use Test::Builder' in\b},
+    ], 'Correct $Test::Builder::Level warning';
 
     is $app->convert( \<<'EOD' )->content(),
 use strict;
@@ -401,7 +403,7 @@ EOD
     # NOTE this does not compare the output to a working test file
     # because Test2::Plugin::NoWarnings is not part of Test2-Suite, so
     # we do not know it is available.
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -425,16 +427,16 @@ EOD
             'Handle Test::Warnings';
     };
 
-    like $warning,
-        qr/\AReplaced 'use Test::Warnings;' with 'use Test2::Plugin::NoWarnings echo => 1;'/,
-        'Got correct warning from handling Test::Warnings';
+    is $warning, [
+        match qr/\AReplaced 'use Test::Warnings;' with 'use Test2::Plugin::NoWarnings echo => 1;'/,
+    ], 'Got correct warning from handling Test::Warnings';
 }
 
 {
     my $app = CLASS->new( load_module => 1 );
     my $warning;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -448,8 +450,9 @@ EOD
             'Convert require_ok() using Test2::Tools::LoadModule';
     };
 
-    like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
-        'Correct load_module_ok() warning';
+    is $warning, [
+        match qr/\AAdded 'use Test2::Tools::LoadModule' in\b/,
+    ], 'Correct load_module_ok() warning';
 
 }
 
@@ -459,7 +462,7 @@ EOD
 
     # TODO figure out how to execute xt/author/test2_bail_out_bail_on_fail.t
     # without terminating the entire test suite.
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -483,10 +486,11 @@ EOD
         'Use Test2::Plugin::BailOnFail instead of BAIL_OUT()';
     };
 
-    like $warning, qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
-        'Correct Test2::Plugin::BailOnFail warning';
+    is $warning, [
+        match qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+    ], 'Correct Test2::Plugin::BailOnFail warning';
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -501,8 +505,9 @@ EOD
         'Convert require_ok() or BAIL_OUT using ok lives { require ... }';
     };
 
-    like $warning, qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
-        'Correct Test2::Plugin::BailOnFail warning';
+    is $warning, [
+        match qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+    ], 'Correct Test2::Plugin::BailOnFail warning';
 
     $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
@@ -527,13 +532,10 @@ EOD
             q/Convert 'use_ok or BAIL_OUT()' using 'use ok' and BailOnFail/;
     };
 
-    is scalar @{ $warning }, 2, 'Got two warnings';
-
-    like $warning->[0], qr/\AAdded 'use ok' in\b/,
-        'Correct use ok warning';
-
-    like $warning->[1], qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
-        'Correct Test2::Plugin::BailOnFail warning';
+    is $warning, [
+        match qr/\AAdded 'use ok' in\b/,
+        match qr/\AAdded 'use Test2::Plugin::BailOnFail' in\b/,
+    ], q/Correct warnings for 'use ok or BAIL_OUT'/;
 }
 
 {
@@ -561,34 +563,38 @@ EOD
     my $app = CLASS->new( explain => 'Data::Dumper=Dumper' );
     my $warning;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain_data_dumper.t' ),
             'Convert explain() to Data::Dumper::Dumper()';
     };
 
-    like $warning, qr/\AAdded 'use Data::Dumper' in\b/,
-        q<Correct 'use YAML' warning>;
+    is $warning, [
+        match qr/\AAdded 'use Data::Dumper' in\b/,
+    ], q<Correct 'use Data::Dumper' warning>;
 }
 
 {
     my $app = CLASS->new( explain => 'Data::Dump=dump' );
     my $warning;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain_data_dump.t' ),
-            'Convert explain() to Data::Dumper::Dumper()';
+            'Convert explain() to Data::Dump::Dumper()';
     };
 
-    like $warning, qr/\AAdded 'use Data::Dump' in\b/,
-        q<Correct 'use YAML' warning>;
+    is $warning, [
+        match qr/\AAdded 'use Data::Dump' in\b/,
+    ], q<Correct 'use Data::Dump' warning>;
 }
 
 {
     my $app = CLASS->new();
+    my $exception;
+    my $warning;
 
-    my $exception = dies {
+    $exception = dies {
         $app->_parse_string_for(
             'use Test2::V0;',
             'PPI::Statement::Variable',
@@ -611,7 +617,9 @@ pass 'Copacetic';
 done_testing;
 EOD
 
-    $app->convert( "$dir/foo.t" )->content();
+    $warning = warnings {
+        $app->convert( "$dir/foo.t" );
+    };
 
     is slurp( "$dir/foo.t" ), <<'EOD', 'Rewrote correct conversion';
 use strict;
@@ -622,10 +630,13 @@ pass 'Copacetic';
 
 done_testing;
 EOD
+
+    is $warning, [], 'Got no warnings';
 }
 
 {
     my $app = CLASS->new( suffix => '.bak' );
+    my $warning;
 
     my $dir = File::Temp->newdir();
 
@@ -641,7 +652,9 @@ EOD
 
     spew( "$dir/foo.t", $data );
 
-    $app->convert( "$dir/foo.t" )->content();
+    $warning = warnings {
+        $app->convert( "$dir/foo.t" );
+    };
 
     is slurp( "$dir/foo.t.bak" ), $data, 'Is the backup file correct';
 
@@ -654,6 +667,8 @@ pass 'Copacetic';
 
 done_testing;
 EOD
+
+    is $warning, [], 'Got no warnings';
 }
 
 {
@@ -667,16 +682,17 @@ We are not realy interested in explain() here, we're just re-using a
 handy manifest constant. The real goal is to test the uncomment_use
 functionality.
 EOD
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( EXPLAIN_TEST )->content(),
             slurp( 'xt/author/test2_explain.t' ),
             'Convert explain()';
     };
 
-    like $warning, qr/\AAdded 'use Test2::Tools::Explain' in\b/,
-        q<Correct 'use Test2::Tools::Explain' warning>;
+    is $warning, [
+        match qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+    ], q<Correct 'use Test2::Tools::Explain' warning>;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( \<<'EOD' )->content(),
 use strict;
 use warnings;
@@ -694,8 +710,9 @@ EOD
             'Convert explain()';
     };
 
-    like $warning, qr/\AAdded 'use Test2::Tools::Explain' in\b/,
-        q<Correct 'use Test2::Tools::Explain' warning>;
+    is $warning, [
+        match qr/\AAdded 'use Test2::Tools::Explain' in\b/,
+    ], q<Correct 'use Test2::Tools::Explain' warning>;
 }
 
 {
@@ -704,14 +721,15 @@ EOD
     );
     my $warning;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( REQUIRE_OK )->content(),
             slurp( 'xt/author/test2_use_ok_ok.t' ),
             q/Convert require_ok() using 'use ok .../;
     };
 
-    like $warning, qr/\AAdded 'use ok' in \b/,
-        q/Correct 'require_ok()' warning under require_to_use => 1/;
+    is $warning, [
+        match qr/\AAdded 'use ok' in \b/,
+    ], q/Correct 'require_ok()' warning under require_to_use => 1/;
 }
 
 {
@@ -721,14 +739,15 @@ EOD
     );
     my $warning;
 
-    $warning = warning {
+    $warning = warnings {
         is $app->convert( REQUIRE_OK )->content(),
             slurp( 'xt/author/test2_use_ok_load_module.t' ),
             q/Convert require_ok() using Test2::Tools::LoadModule/;
     };
 
-    like $warning, qr/\AAdded 'use Test2::Tools::LoadModule' in \b/,
-        q/Correct 'require_ok()' warning under require_to_use => 1/;
+    is $warning, [
+        match qr/\AAdded 'use Test2::Tools::LoadModule' in \b/,
+    ], q/Correct 'require_ok()' warning under require_to_use => 1/;
 }
 
 done_testing;

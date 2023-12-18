@@ -12,9 +12,9 @@ This document is concerned with the mechanics of the conversion. A good introduc
 
 =head1 REQUIREMENTS
 
-As of C<Test2-Suite> version C<0.000159> dated 2023-10-25, an explicit C<use 5.008001;> is specified in F<Makefile.PL>, though I understand that Unicode support was not really in place until about 5.8.4.
+As of C<Test2-Suite> version C<0.000159> dated 2023-10-25, the metadata specify Perl 5.8.1 or better, and there is an explicit C<use 5.008001;> in F<Makefile.PL>.
 
-L<Test2::V0|Test2::V0> requires L<Term::Table|Term::Table>, which is being added to core as well. C<Term-Table> also has C<use 5.008001;> in its F<Makefile.PL>.
+L<Test2::V0|Test2::V0> requires L<Term::Table|Term::Table>, which is being added to core as well. As of C<Term-Table> version 0.018 dated 2023-10-23 it also specifies Perl 5.8.1 or better in both metadata and F<Makefile.PL>.
 
 =head1 CONVERSION
 
@@ -44,7 +44,7 @@ C<Test2-Suite> replaces this with C<my $TODO = todo $reason;>. The name of the v
 
 =head2 C<BAIL_OUT()>
 
-C<Test2-Suite> does not supplies a C<bail_out()> subroutine which is equivalent to the C<Test-More> C<BAIL_OUT()> subroutine. But you are encouraged to C<use Test2::Plugin::BailOnFail;> which bails out on B<any> test failure in the test file. Because of the way I organize my tests I actually prefer this over writing something like C<... or BAIL_OUT;> not only because it is less verbose but because I may (read "will") forget to add C<or BAIL_OUT> when I add a new test.
+C<Test2-Suite> supplies a C<bail_out()> subroutine which is equivalent to the C<Test-More> C<BAIL_OUT()> subroutine. But you are encouraged to C<use Test2::Plugin::BailOnFail;> which bails out on B<any> test failure in the test file. Because of the way I organize my tests I actually prefer this over writing something like C<... or BAIL_OUT;> not only because it is less verbose but because I may (read "will") forget to add C<or BAIL_OUT> when I add a new test.
 
 But converting a L<Test::More|Test::More> test script to L<Test2::V0|Test2::V0> according to this recommendation involves ripping all these out, and the test scripts may not be organized so that B<any> test failure should cause the entire test suite to be abandoned.
 
@@ -188,7 +188,7 @@ I would expect the wise user of the implemented conversion to pick this up in a 
 
 =head2 Converting C<BAIL_OUT()>
 
-An option, C<--bail-on-fail>, determines which alternative is used. If this option is asserted, calls to C<BAIL_OUT()> are removed, and a C<use Test2::Plugin::BailOnFail;> is added. If not (the default), subroutine C<BAIL_OUT()> is added.
+An option, C<--bail-on-fail>, determines which alternative is used. If this option is asserted, calls to C<BAIL_OUT()> are removed, and a C<use Test2::Plugin::BailOnFail;> is added. If not (the default), C<BAIL_OUT()> is converted to C<bail_out()>.
 
 =head2 Converting C<use_ok()>
 
@@ -196,7 +196,7 @@ An option, C<--load-module>, determines which alternative is used. If it is asse
 
 =head2 Converting C<require_ok()>
 
-Option C<--load-module> also controls the conversion of this subroutine. If it is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<require_ok()> subroutine. If not (the default), C<require_ok ...> is converted to C<ok lives { require ... }>.
+Option C<--load-module> also controls the conversion of this subroutine. If it is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<require_ok()> subroutine. If not (the default), C<require_ok ...> is converted to C<ok lives { require ... } ...>.
 
 =head2 Converting C<explain()>
 

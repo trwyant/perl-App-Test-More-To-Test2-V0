@@ -72,16 +72,16 @@ sub meta_merge {
 	dynamic_config	=> 1,
 	resources	=> {
 	    bugtracker	=> {
-#		web	=> 'https://rt.cpan.org/Public/Dist/Display.html?Name=App-Test-More-To-Test2-V0',
+		web	=> 'https://rt.cpan.org/Public/Dist/Display.html?Name=App-Test-More-To-Test2-V0',
 #		# web	=> 'https://github.com/trwyant/perl-App-Test-More-To-Test2-V0/issues',
 		mailto  => 'wyant@cpan.org',
 	    },
 	    license	=> 'http://dev.perl.org/licenses/',
-#	    repository	=> {
-#		type	=> 'git',
-#		url	=> 'git://github.com/trwyant/perl-App-Test-More-To-Test2-V0.git',
-#		web	=> 'https://github.com/trwyant/perl-App-Test-More-To-Test2-V0',
-#	    },
+	    repository	=> {
+		type	=> 'git',
+		url	=> 'git://github.com/trwyant/perl-App-Test-More-To-Test2-V0.git',
+		web	=> 'https://github.com/trwyant/perl-App-Test-More-To-Test2-V0',
+	    },
 	},
 	@extra,
     };

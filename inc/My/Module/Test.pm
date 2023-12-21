@@ -8,10 +8,11 @@ use warnings;
 use Exporter qw{ import };
 use Test2::V0;
 use Test2::API qw{ context_do };
+use Test2::Util::Table qw{ table };
 
 our $VERSION = '0.000_001';
 
-our @EXPORT_OK = qw{ check_for_duplicate_matches };
+our @EXPORT_OK = qw{ check_for_duplicate_matches dependencies_table };
 our @EXPORT = @EXPORT_OK;
 
 sub check_for_duplicate_matches {
@@ -42,6 +43,61 @@ sub check_for_duplicate_matches {
     };
 
     return;
+}
+
+sub dependencies_table {
+    require My::Module::Meta;
+    my @tables = ( '' );
+
+    {
+	my @perls = ( My::Module::Meta->requires_perl(), $] );
+	foreach ( @perls ) {
+	    $_ = sprintf '%.6f', $_;
+	    $_ =~ s/ (?= ... \z ) /./smx;
+	    $_ =~ s/ (?<= \. ) 00? //smxg;
+	}
+	push @tables, table(
+	    header	=> [ qw{ PERL REQUIRED INSTALLED } ],
+	    rows	=> [ [ perl => @perls ] ],
+	);
+    }
+
+    foreach my $kind ( qw{
+	configure_requires build_requires test_requires requires optionals }
+    ) {
+	my $code = My::Module::Meta->can( $kind )
+	    or next;
+	my $req = $code->();
+	my @rows;
+	foreach my $module ( sort keys %{ $req } ) {
+	    ( my $file = "$module.pm" ) =~ s| :: |/|smxg;
+	    # NOTE that an alternative implementation here is to use
+	    # Module::Load::Conditional (core since 5.10.0) to find the
+	    # installed modules, and then MM->parse_version() (from
+	    # ExtUtils::MakeMaker) to find the version without actually
+	    # loading the module.
+	    my $installed;
+	    eval {
+		require $file;
+		$installed = $module->VERSION() // 'undef';
+		1;
+	    } or $installed = 'not installed';
+	    push @rows, [ $module, $req->{$module}, $installed ];
+	}
+	state $kind_hdr = {
+	    configure_requires	=> 'CONFIGURE REQUIRES',
+	    build_requires		=> 'BUILD REQUIRES',
+	    test_requires		=> 'TEST REQUIRES',
+	    requires		=> 'RUNTIME REQUIRES',
+	    optionals		=> 'OPTIONAL MODULES',
+	};
+	push @tables, table(
+	    header	=> [ $kind_hdr->{$kind} // uc $kind, 'REQUIRED', 'INSTALLED' ],
+	    rows	=> \@rows,
+	);
+    }
+
+    return @tables;
 }
 
 1;
@@ -81,6 +137,20 @@ If this subroutine is called more than once it does nothing. That means
 there is no way to turn off the tracking.
 
 The heavy lifting is done by C<< context->hub->follow_up() >>.
+
+=head2 dependencies_table
+
+ diag $_ for dependencies_table;
+
+This subroutine builds and returns depencency tables. The heavy lifting
+is done by C<table()> in L<Test2::Util::Table|Test2::Util::Table>. The
+return is pretty much raw output from the C<table()> subroutine -- that
+is, lines of text without terminating C<"\n"> characters.
+
+B<Note> that this subroutine does not initialize C<Test2>. This is
+important because it may load C<Test::Builder|Test::Builder> at some
+point. If it does this after C<Test2> has been initialized, C<Test2>
+will complain.
 
 =head1 SEE ALSO
 

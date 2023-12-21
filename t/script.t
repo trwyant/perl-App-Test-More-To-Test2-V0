@@ -12,7 +12,7 @@ use lib qw{ inc };
 
 use My::Module::Test qw{ check_for_duplicate_matches };
 
-$ENV{AUTHOR_TEST}
+$ENV{AUTHOR_TESTING}
     and check_for_duplicate_matches;
 
 use constant DEVNULL	=> File::Spec->devnull();

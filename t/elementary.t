@@ -45,7 +45,7 @@ use constant MATCH_ADD_USE_EXPLAIN      =>
     match qr/\AAdded 'use Test2::Tools::Explain' in\b/;
 use constant MATCH_ADD_USE_OK   => match qr/\AAdded 'use ok' in\b/;
 
-$ENV{AUTHOR_TEST}
+$ENV{AUTHOR_TESTING}
     and check_for_duplicate_matches;
 
 {

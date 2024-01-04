@@ -373,24 +373,12 @@ sub _convert_sub__named__require_ok {
 	$ele = $self->_delete_elements( $ele, 1 );
     }
 
-    my $pad;
-    my $repl_string = " lives { require $module }, 'require $module;'";
-    if ( $ele ) {
-	if ( $ele->isa( 'PPI::Token::Structure' ) && $ele eq ';' ||
-	    $ele->isa( 'PPI::Token::Operator' ) && $ele eq 'or'
-	) {
-	    $ele =~ m/ \A \w /smx
-		and $pad = 1;
-	    $repl_string .= <<"END_OF_DATA";
- or diag <<"EOD"
-    Tried to require '$module'
-    Error: \$@
-EOD
-END_OF_DATA
-	} else {
-	    $repl_string .= ' ';
-	}
-    }
+    my $pad = '';
+    $ele
+	and $ele->isa( 'PPI::Token::Operator' )
+	and $ele eq 'or'
+	and $pad = ' ';
+    my $repl_string = " dies { require $module }, undef, 'require $module;'$pad";
 
     my @repl = $self->_parse_string_parts( $repl_string );
 
@@ -400,11 +388,7 @@ END_OF_DATA
 
     $from->{ele}->insert_after( $_ ) for reverse @repl;
 
-    $pad
-	and $ele->insert_before(
-	$self->_make_token( 'PPI::Token::Whitespace', ' ' ) );
-
-    $from->{ele}->replace( $self->_make_token( 'PPI::Token::Word', 'ok' ) );
+    $from->{ele}->replace( $self->_make_token( 'PPI::Token::Word', 'is' ) );
 
     return 1;
 }

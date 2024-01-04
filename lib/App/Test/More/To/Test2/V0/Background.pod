@@ -28,7 +28,7 @@ You will find that things like C<is()>, C<like()>, C<ok()>, C<cmp_ok()>, C<subte
 
 The obvious change to C<use Test2::V0;> needs to be made here.
 
-If you specified an import list to C<use Test::More> you will need to do a little more work, because L<Test2::V0|Test2::V0> does not support the L<Test::More|Test::More> imports C<< tests => $number >>, C<< skip_all => $reason >>, or C<'no_plan'>. Instead, you will need to call C<plan( $number )> or C<skip_all( $reason )>, or C<done_testing()> as appropriate.
+If you specified an import list to C<use Test::More> you will need to do a little more work, because L<Test2::V0|Test2::V0> does not support the L<Test::More|Test::More> imports C<< tests => $number >>, C<< skip_all => $reason >>, or C<'no_plan'>. Instead, you will need to call C<plan( $number )>, C<skip_all( $reason )>, or C<done_testing()> as appropriate.
 
 =head2 C<plan()>
 
@@ -60,6 +60,8 @@ B<Note> that changing C<use_ok ...> to C<use ok ...> changes the order of execut
 
 B<Note also> that while C<use_ok( ... ) or ...> is perfectly legitimate Perl, C<use ok ... or ...> is a syntax error. If the code was in fact C<use_ok( ... ) or BAIL_OUT ...;> you will need to either abandon the C<or ...> and convert the module to L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>, (see L<C<BAIL_OUT()>|/BAIL_OUT()>, above), or convert C<use_ok()> as though it were L<C<require_ok()>|/require_ok()> (see below).
 
+B<Yet another note> is that C<use Test2::Utils::BailOnFail;> appears to suppress the error message that describes the actual cause of the failure.
+
 Another way to deal with this, which avoids the above caveats, is to C<use Test2::Tools::LoadModule ':more';>. This imports a C<use_ok()> which should be pretty compatible with the L<Test::More> version of that test. Disclaimer: I am the author of L<Test2::Tools::LoadModule|Test2::Tools::LoadModule>, and therefore also the complaint department if compatibility problems are found.
 
 =head2 C<require_ok()>
@@ -68,12 +70,11 @@ Unlike C<use_ok()>, this has no recommended translation to C<Test2-Suite>.
 
 One way to deal with this is something like
 
- ok lives { require $module }, "Can load $module"
-   or diag $@;
+ is dies { require $module }, undef, "Can load $module";
 
-though of course you will need to use the bareword form of C<require> if the argument to C<require_ok()> is a module name.
+though of course you will need to use the bareword form of C<require> if the argument to C<require_ok()> is a module name. This form is preferred over C<ok lives { ... } or diag $@> because the latter does not display the diagnostic if L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail> is active.
 
-Another way is the above-mentioned L<Test2::Tools::LoadModule|Test2::Tools::LoadModule>, whose C<:more> tag also exports C<require_ok()>.
+Another way to convert C<require_ok()> is the above-mentioned L<Test2::Tools::LoadModule|Test2::Tools::LoadModule>, whose C<:more> tag also exports C<require_ok()>.
 
 =head2 C<explain()>
 
@@ -164,7 +165,11 @@ For example, L<Test2::V0|Test2::V0> exports a subroutine called C<check()>. If y
 
  use Test2::V0 qw{ !check };
 
-Of course, if it turns out later that you need that functionality, you will need to do something else -- probably rename your support routine, or call the C<Test2-Suite> version as C<Test2::Tools::Compare::check()>.
+If you need the functionality, you can import the subroutine under another name. The L<Test2::V0|Test2::V0> POD gives the following example of renaming C<ok>:
+
+ use Test2::V0 ':DEFAULT', '!ok', ok => { -as => 'my_ok' };
+
+Of course, you can also rename your own support routine.
 
 =head1 IMPLEMENTATION
 
@@ -196,7 +201,13 @@ An option, C<--load-module>, determines which alternative is used. If it is asse
 
 =head2 Converting C<require_ok()>
 
-Option C<--load-module> also controls the conversion of this subroutine. If it is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<require_ok()> subroutine. If not (the default), C<require_ok ...> is converted to C<ok lives { require ... } ...>.
+Option C<--load-module> also controls the conversion of this subroutine. If it is asserted, a C<use Test2::Tools::LoadModule ':more';> is added to provide a C<require_ok()> subroutine.
+
+The default conversion is something like
+
+ is dies { require $module }, undef, "require $module;";
+
+If you find this too verbose but do not want to install L<Test2::Tools::LoadModule|Test2::Tools::LoadModule>, you can assert C<--require-to-use>, which causes C<require_ok()> to be converted as though it were C<use_ok()>.
 
 =head2 Converting C<explain()>
 
@@ -218,7 +229,7 @@ Because I see no way to automate this, all the script does is to insert a diagno
 
 =head2 Handling Name Collisions
 
-Ideally this would be done by identifying the subroutines exported by L<Test2::V0|Test2::V0>, comparing them to the subroutines defined in or imported into the test being converted, and telling L<Test2::V0|Test2::V0> not to export the conflicting names.
+Ideally this would be done by identifying the subroutines exported by L<Test2::V0|Test2::V0>, comparing them to the subroutines defined in or imported into the test script being converted, and telling L<Test2::V0|Test2::V0> not to export the conflicting names.
 
 For an initial implementation, though, I found identifying all imports from all modules too daunting. I rationalized this by observing the limitations of static analysis in the presence of things like computed import lists and C<use if>.
 

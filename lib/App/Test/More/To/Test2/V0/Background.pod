@@ -14,7 +14,7 @@ This document is concerned with the mechanics of the conversion. A good introduc
 
 As of C<Test2-Suite> version C<0.000159> dated 2023-10-25, the metadata specify Perl 5.8.1 or better, and there is an explicit C<use 5.008001;> in F<Makefile.PL>.
 
-L<Test2::V0|Test2::V0> requires L<Term::Table|Term::Table>, which is being added to core as well. As of C<Term-Table> version 0.018 dated 2023-10-23 it also specifies Perl 5.8.1 or better in both metadata and F<Makefile.PL>.
+L<Test2::V0|Test2::V0> requires L<Term::Table|Term::Table>, which is being added to core as well. As of C<Term-Table> version 0.018 dated 2023-10-23 C<Term-Table> also specifies Perl 5.8.1 or better in both metadata and F<Makefile.PL>.
 
 =head1 CONVERSION
 
@@ -124,7 +124,7 @@ This appears to be minimally implemented in L<Test::More|Test::More>. As of L<Te
 
 =head2 C<$Test::Builder::Level>
 
-If you want to provide your own test subroutine, C<$Test::Builder::Level> could be used to manipulate how far up the call stack to report the error. For example:
+If you want to provide your own test subroutine under L<Test::More|Test::More>, C<$Test::Builder::Level> could be used to manipulate how far up the call stack to report the error. For example:
 
  sub is_fred{
    my ( $name ) = @_;
